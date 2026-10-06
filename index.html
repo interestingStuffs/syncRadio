@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f3eb">
+    <meta name="description" content="Ascolta la stazione radio ufficiale, sincronizzata per tutti.">
+    <title>syncRadio | Radio condivisa</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./src/app.mjs"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="./" aria-label="syncRadio, pagina iniziale">
+        <span class="wordmark-icon" aria-hidden="true">s<span>r</span></span>
+        <span>syncRadio</span>
+      </a>
+      <div class="broadcast-label"><span class="live-dot"></span> UN'UNICA FREQUENZA, INSIEME</div>
+      <div class="clock-label" id="clock-label">Ora in attesa</div>
+    </header>
+
+    <main>
+      <section class="station-intro" aria-labelledby="station-name">
+        <p class="eyebrow">LA STAZIONE UFFICIALE</p>
+        <h1 id="station-name">Radio non configurata</h1>
+        <p class="station-description" id="station-description">La stazione ufficiale non è ancora disponibile.</p>
+        <div class="station-switcher" id="station-switcher" hidden>
+          <label for="station-select">Ascolta un’altra stazione</label>
+          <select id="station-select"></select>
+        </div>
+      </section>
+
+      <section class="listening-layout" aria-label="Player e palinsesto ufficiale">
+        <div class="now-panel">
+          <div class="panel-heading">
+            <span class="eyebrow">IN ONDA SECONDO LA TIMELINE</span>
+            <span class="on-air-indicator" id="on-air-indicator"><span></span> PROGRAMMAZIONE</span>
+          </div>
+
+          <div class="track-info" aria-live="polite" aria-atomic="true">
+            <p class="track-time" id="track-time">--:--</p>
+            <h2 id="track-title">Nessuna traccia caricata</h2>
+            <p class="track-artist" id="track-artist">Configura il manifesto per iniziare.</p>
+          </div>
+
+          <div class="progress-track" aria-hidden="true"><span id="progress-fill"></span></div>
+          <div class="track-timing"><span id="elapsed-time">--:--</span><span id="remaining-time">--:--</span></div>
+
+          <div class="player-controls">
+            <button class="tune-button" id="tune-button" type="button" disabled>
+              <span class="button-icon" id="button-icon" aria-hidden="true">▶</span>
+              <span id="button-label">Sintonizzati</span>
+            </button>
+            <div class="volume-control">
+              <button class="volume-toggle" id="volume-toggle" type="button" aria-label="Disattiva audio" aria-pressed="false">
+                <svg class="volume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M3 9v6h4l5 4V5L7 9H3Z"></path>
+                  <path class="volume-waves" d="M16 9a5 5 0 0 1 0 6m2.5-8.5a8.5 8.5 0 0 1 0 11"></path>
+                  <path class="volume-muted" d="m16 9 5 6m0-6-5 6"></path>
+                </svg>
+              </button>
+              <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume locale">
+            </div>
+          </div>
+          <div class="sync-reset-controls">
+            <button class="sync-reset-button" id="sync-reset-button" type="button" disabled>
+              Risincronizza dispositivi
+            </button>
+          </div>
+          <p class="sync-reset-status" id="sync-reset-status" role="status" aria-live="polite" hidden></p>
+          <div class="playback-offset" aria-label="Correzione della sincronizzazione audio">
+            <span class="offset-label">OFFSET AUDIO</span>
+            <button class="offset-button" id="offset-decrease" type="button" aria-label="Ritarda audio di 50 millisecondi" title="Ritarda audio di 50 ms">−</button>
+            <output id="playback-offset" aria-live="polite">0 ms</output>
+            <button class="offset-button" id="offset-increase" type="button" aria-label="Anticipa audio di 50 millisecondi" title="Anticipa audio di 50 ms">+</button>
+            <button class="offset-reset" id="offset-reset" type="button" aria-label="Azzera offset audio" title="Azzera offset audio">↺</button>
+          </div>
+          <p class="player-error" id="player-error" role="status" hidden></p>
+          <p class="configuration-error" id="configuration-error" role="alert" hidden></p>
+
+        </div>
+
+        <aside class="schedule-panel" aria-labelledby="schedule-title">
+          <div class="schedule-heading">
+            <div>
+              <p class="eyebrow">DALL'INIZIO DELLA TRASMISSIONE</p>
+              <h2 id="schedule-title">Scaletta ufficiale</h2>
+            </div>
+            <span class="schedule-count" id="schedule-count">0</span>
+          </div>
+          <ol class="schedule-list" id="schedule-list">
+            <li class="schedule-empty">La scaletta sarà mostrata qui quando il manifesto sarà disponibile.</li>
+          </ol>
+          <p class="schedule-footnote" id="schedule-footnote">Orari calcolati dalla timeline condivisa.</p>
+        </aside>
+      </section>
+
+      <details class="sync-diagnostics" aria-labelledby="diagnostics-title">
+        <summary class="diagnostics-heading">
+          <span class="diagnostics-copy">
+            <span class="eyebrow">TELEMETRIA DELLA SINCRONIZZAZIONE</span>
+            <span class="diagnostics-title" id="diagnostics-title" role="heading" aria-level="2">Dettagli sincronizzazione</span>
+          </span>
+          <span class="diagnostics-summary-meta">
+            <span class="diagnostics-state" id="diagnostics-state">In attesa</span>
+            <span class="diagnostics-chevron" aria-hidden="true"></span>
+          </span>
+        </summary>
+        <div class="sync-status" id="sync-status" role="status" aria-live="polite">
+          <span class="sync-icon" id="sync-icon" aria-hidden="true">◷</span>
+          <span id="sync-message">Caricamento della configurazione…</span>
+        </div>
+        <dl class="diagnostics-grid">
+          <div>
+            <dt>Provider attivo</dt>
+            <dd id="diagnostics-provider">Non sincronizzato</dd>
+          </div>
+          <div>
+            <dt>Ora UTC stimata</dt>
+            <dd id="diagnostics-utc">--</dd>
+          </div>
+          <div>
+            <dt>Ultimo campione API</dt>
+            <dd id="diagnostics-sample">--</dd>
+          </div>
+          <div>
+            <dt>Scarto dall'orologio locale</dt>
+            <dd id="diagnostics-offset">--</dd>
+          </div>
+          <div>
+            <dt>Incertezza stimata (RTT / 2)</dt>
+            <dd id="diagnostics-uncertainty">--</dd>
+          </div>
+          <div>
+            <dt>Latenza richiesta</dt>
+            <dd id="diagnostics-latency">--</dd>
+          </div>
+          <div>
+            <dt>Latenza d’uscita stimata</dt>
+            <dd id="diagnostics-output-latency">Non misurata</dd>
+          </div>
+          <div class="diagnostics-wide">
+            <dt>Tentativi sulle API configurate</dt>
+            <dd><ol class="diagnostics-attempts" id="diagnostics-attempts"><li>In attesa della prima richiesta.</li></ol></dd>
+          </div>
+          <div class="diagnostics-wide">
+            <dt>Ultimo errore o avviso</dt>
+            <dd id="diagnostics-detail">Nessun controllo ancora eseguito.</dd>
+          </div>
+        </dl>
+      </details>
+    </main>
+
+    <footer class="page-footer">
+      <span>Una stazione. La stessa timeline, ovunque.</span>
+      <span id="manifest-status">MANIFESTO NON CARICATO</span>
+    </footer>
+  </body>
+</html>
