@@ -1,6 +1,6 @@
 # syncRadio
 
-Player statico per una o piu stazioni ufficiali. Le stazioni, i relativi metadati e l'inizio della timeline si configurano in `config.json`; ogni manifesto CSV contiene solo la scaletta. Lo switch tra stazioni e controllato dalla configurazione. I file possono essere pubblicati su qualsiasi hosting statico; non e previsto ne richiesto un backend applicativo.
+Player statico per una o piu stazioni ufficiali. Le stazioni, i relativi metadati e l'inizio della timeline si configurano in `config.json`; ogni manifesto CSV contiene solo la scaletta. Lo switch tra stazioni è controllato dalla configurazione. I file possono essere pubblicati su qualsiasi hosting statico; non e previsto ne richiesto un backend applicativo.
 
 ## Configurazione
 
