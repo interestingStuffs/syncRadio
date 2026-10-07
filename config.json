@@ -1,7 +1,6 @@
 {
   "allowStationSwitch": true,
   "stationQueryParam": "station",
-  "playbackOffsetQueryParam": "offset",
   "useManifestDurations": true,
   "customTimeSource": {
     "name": "SyncRadio · UTC",

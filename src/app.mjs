@@ -7,7 +7,6 @@ import { createAudioOutputLatencyMonitor } from './audio-output-latency.mjs';
 import {
   loadPlaybackOffset,
   savePlaybackOffset,
-  parsePlaybackOffset,
   PLAYBACK_OFFSET_STEP_MS,
   MAX_PLAYBACK_OFFSET_MS,
 } from './playback-offset.mjs';
@@ -47,11 +46,6 @@ async function start() {
   } catch (error) {
     showConfigurationError(error.message);
     return;
-  }
-
-  if (config.playbackOffsetQueryParam) {
-    playbackOffsetMs = savePlaybackOffset(getPlaybackOffsetFromUrl() ?? 0);
-    updatePlaybackOffsetUrl(true);
   }
 
   clock = createClock({
@@ -101,19 +95,11 @@ async function start() {
   renderPlaybackOffset();
   const initialStation = getStationFromUrl();
   updateStationUrl(initialStation, true);
-  if (config.stationQueryParam || config.playbackOffsetQueryParam) {
+  if (config.stationQueryParam) {
     window.addEventListener('popstate', () => {
-      if (config.stationQueryParam) {
-        const station = getStationFromUrl();
-        updateStationUrl(station, true);
-        if (elements['station-select'].value !== station.id) loadStation(station);
-      }
-      if (config.playbackOffsetQueryParam) {
-        playbackOffsetMs = savePlaybackOffset(getPlaybackOffsetFromUrl() ?? 0);
-        renderPlaybackOffset();
-        if (tunedIn) void realignPlayback();
-        else render();
-      }
+      const station = getStationFromUrl();
+      updateStationUrl(station, true);
+      if (elements['station-select'].value !== station.id) loadStation(station);
     });
   }
   await Promise.allSettled([
@@ -167,23 +153,6 @@ function updateStationUrl(station, replace = false) {
   const url = new URL(window.location.href);
   if (url.searchParams.get(config.stationQueryParam) === station.id) return;
   url.searchParams.set(config.stationQueryParam, station.id);
-  window.history[replace ? 'replaceState' : 'pushState'](window.history.state, '', url);
-}
-
-function getPlaybackOffsetFromUrl() {
-  const value = new URL(window.location.href).searchParams.get(config.playbackOffsetQueryParam);
-  return parsePlaybackOffset(value);
-}
-
-function updatePlaybackOffsetUrl(replace = false) {
-  if (!config.playbackOffsetQueryParam) return;
-
-  const url = new URL(window.location.href);
-  const currentValue = url.searchParams.get(config.playbackOffsetQueryParam);
-  const nextValue = playbackOffsetMs === 0 ? null : String(playbackOffsetMs);
-  if (currentValue === nextValue) return;
-  if (nextValue === null) url.searchParams.delete(config.playbackOffsetQueryParam);
-  else url.searchParams.set(config.playbackOffsetQueryParam, nextValue);
   window.history[replace ? 'replaceState' : 'pushState'](window.history.state, '', url);
 }
 
@@ -505,7 +474,6 @@ function getPlayerOffset(offsetMs) {
 
 function changePlaybackOffset(changeMs) {
   playbackOffsetMs = savePlaybackOffset(playbackOffsetMs + changeMs);
-  updatePlaybackOffsetUrl();
   renderPlaybackOffset();
   if (tunedIn) {
     void realignPlayback();
