@@ -14,6 +14,7 @@ Modifica quindi `config.json` in locale e pubblicalo sul tuo hosting insieme all
 
 - `stations`: lista di stazioni, ognuna con `id` univoco, `name`, `description`, `manifestUrl` (assoluto o relativo), `timelineStartsAt` (data ISO 8601 con fuso orario) e `repeat` opzionale (booleano, predefinito `false`). CSV e il formato raccomandato; i manifesti JSON sono ancora supportati.
 - `allowStationSwitch`: abilita (`true`) o disabilita (`false`) lo switch utente tra le stazioni configurate. E visibile solo se ci sono almeno due stazioni.
+- `stationQueryParam`: nome opzionale del parametro URL usato per scegliere la stazione. Il valore deve corrispondere all'`id` della stazione; ad esempio, con `"stationQueryParam": "station"`, `?station=radio-due` apre la stazione con `"id": "radio-due"`. Se il parametro manca o il valore non corrisponde a una stazione, viene caricata la prima della lista. Quando configurato, la selezione iniziale aggiorna l'URL senza creare una voce nella cronologia e i cambi dal selettore aggiornano l'URL; i parametri esistenti e il frammento sono mantenuti. Il parametro funziona anche se `allowStationSwitch` disabilita il selettore.
 - `useManifestDurations`: se `true`, usa le durate della colonna `duration` del manifesto quando sono compilate e valide per tutte le tracce; se ne manca una, usa i metadati audio per l'intera scaletta. Il valore predefinito e `false`.
 - `customTimeSource`: configurazione opzionale del futuro servizio orario proprietario. Con `url` vuoto resta disabilitato; quando l'endpoint sara disponibile, impostando l'URL valido verra provato prima delle sorgenti pubbliche. Prevede una risposta JSON con timestamp UTC nel campo `utc` (ad esempio `{"utc":"2026-10-07T09:00:00.000Z"}`); `responsePath`, `timeZonePath` e `responseFormat` sono configurabili.
 - `timeSources`: lista ordinata di sorgenti orarie; la prima e la primaria e le successive sono tentate automaticamente come fallback. Ogni voce specifica `name`, `url`, `responsePath` e, se il timestamp non include il fuso, `timeZonePath`. `responseFormat` puo essere `json` (predefinito) o `text`.
@@ -69,7 +70,7 @@ Esempio della configurazione delle stazioni:
 }
 ```
 
-La prima stazione della lista viene caricata all'apertura. Con `allowStationSwitch: true` e almeno due voci, l'utente puo cambiare stazione dal selettore; il player interrompe la riproduzione corrente e carica la scaletta selezionata.
+La prima stazione della lista viene caricata all'apertura, salvo che `stationQueryParam` selezioni una stazione diversa. Con `allowStationSwitch: true` e almeno due voci, l'utente puo cambiare stazione dal selettore; il player interrompe la riproduzione corrente e carica la scaletta selezionata. I cambi di stazione vengono aggiunti alla cronologia del browser e sono navigabili con Avanti/Indietro.
 
 ## Manifesto CSV
 

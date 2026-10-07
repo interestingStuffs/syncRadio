@@ -82,13 +82,25 @@ async function start() {
   elements['offset-reset'].addEventListener('click', () => changePlaybackOffset(-playbackOffsetMs));
   elements['station-select'].addEventListener('change', (event) => {
     const station = config.stations.find(({ id }) => id === event.target.value);
-    if (station) loadStation(station);
+    if (station) {
+      updateStationUrl(station);
+      loadStation(station);
+    }
   });
 
   renderStationOptions();
   renderPlaybackOffset();
+  const initialStation = getStationFromUrl();
+  updateStationUrl(initialStation, true);
+  if (config.stationQueryParam) {
+    window.addEventListener('popstate', () => {
+      const station = getStationFromUrl();
+      updateStationUrl(station, true);
+      if (elements['station-select'].value !== station.id) loadStation(station);
+    });
+  }
   await Promise.allSettled([
-    loadStation(config.stations[0]),
+    loadStation(initialStation),
     clock.synchronize(),
   ]);
   renderClockStatus();
@@ -122,6 +134,22 @@ function renderStationOptions() {
   }
   elements['station-select'].replaceChildren(options);
   elements['station-switcher'].hidden = !config.allowStationSwitch || config.stations.length < 2;
+}
+
+function getStationFromUrl() {
+  const stationId = config.stationQueryParam
+    ? new URL(window.location.href).searchParams.get(config.stationQueryParam)
+    : null;
+  return config.stations.find(({ id }) => id === stationId) || config.stations[0];
+}
+
+function updateStationUrl(station, replace = false) {
+  if (!config.stationQueryParam) return;
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.get(config.stationQueryParam) === station.id) return;
+  url.searchParams.set(config.stationQueryParam, station.id);
+  window.history[replace ? 'replaceState' : 'pushState'](window.history.state, '', url);
 }
 
 async function loadStation(station) {

@@ -28,6 +28,12 @@ export async function loadConfig() {
   if (config.allowStationSwitch !== undefined && typeof config.allowStationSwitch !== 'boolean') {
     throw new Error('Il valore "allowStationSwitch" in config.json deve essere true o false.');
   }
+  const stationQueryParam = config.stationQueryParam === undefined
+    ? null
+    : requireString(config.stationQueryParam, 'stationQueryParam');
+  if (config.stationQueryParam !== undefined && !stationQueryParam) {
+    throw new Error('Il valore "stationQueryParam" in config.json deve essere una stringa non vuota.');
+  }
   if (config.useManifestDurations !== undefined && typeof config.useManifestDurations !== 'boolean') {
     throw new Error('Il valore "useManifestDurations" in config.json deve essere true o false.');
   }
@@ -35,6 +41,7 @@ export async function loadConfig() {
   return {
     stations,
     allowStationSwitch: config.allowStationSwitch === true,
+    stationQueryParam,
     useManifestDurations: config.useManifestDurations === true,
     timeSources,
     resyncIntervalMs: positiveNumber(config.resyncIntervalMs, 30000),
