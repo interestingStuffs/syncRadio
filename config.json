@@ -1,6 +1,13 @@
 {
   "allowStationSwitch": true,
   "useManifestDurations": true,
+  "customTimeSource": {
+    "name": "SyncRadio · UTC",
+    "url": "",
+    "responsePath": "utc",
+    "timeZonePath": "",
+    "responseFormat": "json"
+  },
   "stations": [
     {
       "id": "sation-1",
@@ -35,23 +42,17 @@
       "timeZonePath": "timeZone"
     },
     {
-      "name": "WorldTimeAPI · UTC",
-      "url": "https://worldtimeapi.org/api/timezone/Etc/UTC",
-      "responsePath": "utc_datetime",
-      "timeZonePath": ""
-    },
-    {
-      "name": "TimeAPI.io · UTC (host alternativo)",
-      "url": "https://www.timeapi.io/api/Time/current/zone?timeZone=UTC",
-      "responsePath": "dateTime",
-      "timeZonePath": "timeZone"
-    },
-    {
       "name": "Cloudflare · UTC (fallback)",
       "url": "https://www.cloudflare.com/cdn-cgi/trace",
       "responsePath": "ts",
       "timeZonePath": "",
       "responseFormat": "text"
+    },
+    {
+      "name": "WorldTimeAPI · UTC",
+      "url": "https://worldtimeapi.org/api/timezone/Etc/UTC",
+      "responsePath": "utc_datetime",
+      "timeZonePath": ""
     }
   ],
   "resyncIntervalMs": 15000,

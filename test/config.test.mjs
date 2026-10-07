@@ -76,6 +76,71 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
   assert.equal(config.useManifestDurations, false);
 });
 
+test('disattiva il servizio orario proprietario finché l’URL è vuoto', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    customTimeSource: {
+      name: 'SyncRadio · UTC',
+      url: '  ',
+      responsePath: 'utc',
+    },
+    timeSources: [{
+      name: 'Pubblico',
+      url: 'https://time.example/api',
+      responsePath: 'utc',
+    }],
+  }));
+
+  const config = await loadConfig();
+
+  assert.deepEqual(config.timeSources, [{
+    name: 'Pubblico',
+    url: 'https://time.example/api',
+    responsePath: 'utc',
+    timeZonePath: '',
+    responseFormat: 'json',
+  }]);
+});
+
+test('prova il servizio orario proprietario per primo quando configurato', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    customTimeSource: {
+      name: 'SyncRadio UTC',
+      url: 'https://clock.syncradio.example/api/time',
+      responsePath: 'data.utc',
+    },
+    timeSources: [{
+      name: 'Pubblico',
+      url: 'https://time.example/api',
+      responsePath: 'utc',
+    }],
+  }));
+
+  const config = await loadConfig();
+
+  assert.equal(config.timeSources[0].name, 'SyncRadio UTC');
+  assert.equal(config.timeSources[0].responsePath, 'data.utc');
+  assert.deepEqual(config.timeSources.map(({ name }) => name), ['SyncRadio UTC', 'Pubblico']);
+});
+
+test('valida URL e formato del servizio orario proprietario anche se attivato', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    customTimeSource: { url: 'file:///clock.json' },
+  }));
+  await assert.rejects(loadConfig(), /customTimeSource\.url deve usare HTTP o HTTPS/);
+
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    customTimeSource: {
+      url: 'https://clock.example/api',
+      responseFormat: 'xml',
+    },
+  }));
+  await assert.rejects(loadConfig(), /customTimeSource\.responseFormat deve essere "json" o "text"/);
+});
+
 test('rifiuta una risposta HTTP non riuscita', async (t) => {
   mockConfig(t, jsonResponse({}, 503));
   await assert.rejects(loadConfig(), /config\.json \(HTTP 503\)/);

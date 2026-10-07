@@ -15,7 +15,13 @@ export async function loadConfig() {
   }
 
   const stations = validateStations(config.stations);
-  const timeSources = config.timeSources === undefined ? [] : validateTimeSources(config.timeSources);
+  const customTimeSource = config.customTimeSource === undefined
+    ? null
+    : validateCustomTimeSource(config.customTimeSource);
+  const configuredTimeSources = config.timeSources === undefined ? [] : validateTimeSources(config.timeSources);
+  const timeSources = customTimeSource
+    ? [customTimeSource, ...configuredTimeSources]
+    : configuredTimeSources;
   if (config.localFallback !== undefined && typeof config.localFallback !== 'boolean') {
     throw new Error('Il valore "localFallback" in config.json deve essere true o false.');
   }
@@ -86,32 +92,51 @@ function hasTimezone(value) {
 
 function validateTimeSources(value) {
   if (!Array.isArray(value)) throw new Error('timeSources in config.json deve essere una lista ordinata.');
-  return value.map((source, index) => {
-    const label = `timeSources[${index}]`;
-    if (!source || typeof source !== 'object' || Array.isArray(source)) {
-      throw new Error(`${label} deve essere un oggetto.`);
-    }
+  return value.map((source, index) => validateTimeSource(source, `timeSources[${index}]`));
+}
 
-    const name = requireString(source.name, `${label}.name`);
-    const url = requireString(source.url, `${label}.url`);
-    const responsePath = requireString(source.responsePath, `${label}.responsePath`);
-    const timeZonePath = requireString(source.timeZonePath ?? '', `${label}.timeZonePath`);
-    const responseFormat = source.responseFormat ?? 'json';
-    if (!name || !url) throw new Error(`${label} richiede name e url.`);
-    if (responseFormat !== 'json' && responseFormat !== 'text') {
-      throw new Error(`${label}.responseFormat deve essere "json" o "text".`);
-    }
+function validateCustomTimeSource(value) {
+  const label = 'customTimeSource';
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${label} deve essere un oggetto.`);
+  }
 
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url);
-    } catch {
-      throw new Error(`${label}.url deve essere un URL assoluto valido.`);
-    }
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      throw new Error(`${label}.url deve usare HTTP o HTTPS.`);
-    }
+  const url = requireString(value.url, `${label}.url`);
+  if (!url) return null;
 
-    return { name, url: parsedUrl.href, responsePath, timeZonePath, responseFormat };
-  });
+  return validateTimeSource({
+    name: value.name ?? 'SyncRadio · UTC',
+    url,
+    responsePath: value.responsePath ?? 'utc',
+    timeZonePath: value.timeZonePath ?? '',
+    responseFormat: value.responseFormat ?? 'json',
+  }, label);
+}
+
+function validateTimeSource(source, label) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    throw new Error(`${label} deve essere un oggetto.`);
+  }
+
+  const name = requireString(source.name, `${label}.name`);
+  const url = requireString(source.url, `${label}.url`);
+  const responsePath = requireString(source.responsePath, `${label}.responsePath`);
+  const timeZonePath = requireString(source.timeZonePath ?? '', `${label}.timeZonePath`);
+  const responseFormat = source.responseFormat ?? 'json';
+  if (!name || !url) throw new Error(`${label} richiede name e url.`);
+  if (responseFormat !== 'json' && responseFormat !== 'text') {
+    throw new Error(`${label}.responseFormat deve essere "json" o "text".`);
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error(`${label}.url deve essere un URL assoluto valido.`);
+  }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error(`${label}.url deve usare HTTP o HTTPS.`);
+  }
+
+  return { name, url: parsedUrl.href, responsePath, timeZonePath, responseFormat };
 }
