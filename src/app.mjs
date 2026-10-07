@@ -13,6 +13,7 @@ import {
 import { buildSchedule, locateTrack } from './timeline.mjs';
 
 const TRACK_PRELOAD_LOOKAHEAD_MS = 10_000;
+const MAX_CALIBRATION_ADJUSTMENT_MS = 500;
 
 const elements = Object.fromEntries([
   'station-name', 'station-description', 'station-switcher', 'station-select', 'clock-label',
@@ -20,6 +21,8 @@ const elements = Object.fromEntries([
   'progress-fill', 'elapsed-time', 'remaining-time', 'tune-button',
   'sync-reset-button', 'sync-reset-status', 'button-icon', 'button-label',
   'offset-decrease', 'offset-increase', 'offset-reset', 'playback-offset',
+  'offset-calibration', 'calibration-flash', 'calibration-start', 'calibration-stop',
+  'calibration-earlier', 'calibration-later', 'calibration-status',
   'volume-slider', 'volume-toggle', 'player-error', 'configuration-error', 'sync-status', 'sync-icon', 'sync-message',
   'schedule-count', 'schedule-list', 'schedule-footnote', 'on-air-indicator', 'manifest-status',
   'diagnostics-state', 'diagnostics-provider', 'diagnostics-utc', 'diagnostics-sample',
@@ -39,6 +42,10 @@ let playbackCycleIndex = null;
 let playbackOffsetMs = loadPlaybackOffset();
 let synchronizationResetPending = false;
 let audioOutputLatencyMonitoringStarted = false;
+let calibrationAudio = null;
+let calibrationAudioUrl = null;
+let calibrationTimers = [];
+let calibrationBaselineOffsetMs = 0;
 
 async function start() {
   try {
@@ -72,10 +79,12 @@ async function start() {
   renderVolumeState();
   elements['volume-slider'].addEventListener('input', (event) => {
     player.setVolume(Number(event.target.value));
+    if (calibrationAudio) calibrationAudio.volume = Number(event.target.value);
     renderVolumeState();
   });
   elements['volume-toggle'].addEventListener('click', () => {
     player.toggleMute();
+    if (calibrationAudio) calibrationAudio.muted = player.isMuted();
     renderVolumeState();
   });
   elements['tune-button'].addEventListener('click', toggleTuning);
@@ -83,6 +92,13 @@ async function start() {
   elements['offset-decrease'].addEventListener('click', () => changePlaybackOffset(-PLAYBACK_OFFSET_STEP_MS));
   elements['offset-increase'].addEventListener('click', () => changePlaybackOffset(PLAYBACK_OFFSET_STEP_MS));
   elements['offset-reset'].addEventListener('click', () => changePlaybackOffset(-playbackOffsetMs));
+  elements['calibration-start'].addEventListener('click', startOffsetCalibration);
+  elements['calibration-stop'].addEventListener('click', () => stopOffsetCalibration());
+  elements['calibration-earlier'].addEventListener('click', () => adjustOffsetCalibration(-PLAYBACK_OFFSET_STEP_MS));
+  elements['calibration-later'].addEventListener('click', () => adjustOffsetCalibration(PLAYBACK_OFFSET_STEP_MS));
+  elements['offset-calibration'].addEventListener('toggle', (event) => {
+    if (!event.target.open) stopOffsetCalibration();
+  });
   elements['station-select'].addEventListener('change', (event) => {
     const station = config.stations.find(({ id }) => id === event.target.value);
     if (station) {
@@ -484,10 +500,126 @@ function changePlaybackOffset(changeMs) {
 
 function renderPlaybackOffset() {
   const sign = playbackOffsetMs > 0 ? '+' : '';
+  const calibrationDelta = playbackOffsetMs - calibrationBaselineOffsetMs;
+  const calibrating = Boolean(calibrationAudio);
   elements['playback-offset'].textContent = `${sign}${playbackOffsetMs} ms`;
-  elements['offset-decrease'].disabled = playbackOffsetMs <= -MAX_PLAYBACK_OFFSET_MS;
-  elements['offset-increase'].disabled = playbackOffsetMs >= MAX_PLAYBACK_OFFSET_MS;
-  elements['offset-reset'].disabled = playbackOffsetMs === 0;
+  elements['offset-decrease'].disabled = playbackOffsetMs <= -MAX_PLAYBACK_OFFSET_MS
+    || (calibrating && calibrationDelta <= -MAX_CALIBRATION_ADJUSTMENT_MS);
+  elements['offset-increase'].disabled = playbackOffsetMs >= MAX_PLAYBACK_OFFSET_MS
+    || (calibrating && calibrationDelta >= MAX_CALIBRATION_ADJUSTMENT_MS);
+  elements['offset-reset'].disabled = playbackOffsetMs === 0 || calibrating;
+  elements['calibration-earlier'].disabled = !calibrating
+    || playbackOffsetMs <= -MAX_PLAYBACK_OFFSET_MS
+    || calibrationDelta <= -MAX_CALIBRATION_ADJUSTMENT_MS;
+  elements['calibration-later'].disabled = !calibrating
+    || playbackOffsetMs >= MAX_PLAYBACK_OFFSET_MS
+    || calibrationDelta >= MAX_CALIBRATION_ADJUSTMENT_MS;
+}
+
+function startOffsetCalibration() {
+  stopOffsetCalibration();
+  calibrationBaselineOffsetMs = playbackOffsetMs;
+  calibrationAudio = new Audio(createCalibrationToneUrl());
+  calibrationAudioUrl = calibrationAudio.src;
+  calibrationAudio.volume = Number(elements['volume-slider'].value);
+  calibrationAudio.muted = player?.isMuted() ?? false;
+  elements['calibration-start'].hidden = true;
+  elements['calibration-stop'].hidden = false;
+  elements['calibration-status'].textContent = 'Test in corso: confronta il beep con il flash e regola finché sembrano simultanei.';
+  renderPlaybackOffset();
+  scheduleCalibrationCue();
+}
+
+function scheduleCalibrationCue() {
+  if (!calibrationAudio) return;
+  const cycleStart = performance.now() + 400;
+  const flashAt = cycleStart + 700;
+  const offsetChangeMs = playbackOffsetMs - calibrationBaselineOffsetMs;
+  const beepAt = flashAt - audioOutputLatency.getCompensationMs() - offsetChangeMs;
+  scheduleCalibrationTimeout(() => {
+    elements['calibration-flash'].classList.add('is-active');
+    scheduleCalibrationTimeout(() => {
+      elements['calibration-flash'].classList.remove('is-active');
+    }, 120);
+  }, Math.max(0, flashAt - performance.now()));
+  scheduleCalibrationTimeout(() => {
+    const audio = calibrationAudio;
+    if (!audio) return;
+    audio.currentTime = 0;
+    audio.play().catch((error) => {
+      if (calibrationAudio !== audio) return;
+      stopOffsetCalibration(`Riproduzione del beep non riuscita: ${error.message}`);
+    });
+  }, Math.max(0, beepAt - performance.now()));
+  scheduleCalibrationTimeout(scheduleCalibrationCue, Math.max(0, cycleStart + 1800 - performance.now()));
+}
+
+function scheduleCalibrationTimeout(callback, delayMs) {
+  const timer = window.setTimeout(() => {
+    calibrationTimers = calibrationTimers.filter((pendingTimer) => pendingTimer !== timer);
+    callback();
+  }, delayMs);
+  calibrationTimers.push(timer);
+}
+
+function adjustOffsetCalibration(changeMs) {
+  const nextDelta = playbackOffsetMs + changeMs - calibrationBaselineOffsetMs;
+  if (Math.abs(nextDelta) > MAX_CALIBRATION_ADJUSTMENT_MS) return;
+  changePlaybackOffset(changeMs);
+  if (!calibrationAudio) return;
+  elements['calibration-status'].textContent = `Offset aggiornato a ${playbackOffsetMs} ms. Continua finché beep e flash sembrano simultanei.`;
+}
+
+function stopOffsetCalibration(statusMessage = null) {
+  const wasRunning = Boolean(calibrationAudio);
+  for (const timer of calibrationTimers) window.clearTimeout(timer);
+  calibrationTimers = [];
+  if (calibrationAudio) {
+    calibrationAudio.pause();
+    calibrationAudio.removeAttribute('src');
+    calibrationAudio.load();
+    calibrationAudio = null;
+    if (calibrationAudioUrl) URL.revokeObjectURL(calibrationAudioUrl);
+    calibrationAudioUrl = null;
+  }
+  elements['calibration-flash'].classList.remove('is-active');
+  elements['calibration-start'].hidden = false;
+  elements['calibration-stop'].hidden = true;
+  renderPlaybackOffset();
+  if (statusMessage) {
+    elements['calibration-status'].textContent = statusMessage;
+  } else if (wasRunning) {
+    elements['calibration-status'].textContent = `Test terminato. Offset mantenuto: ${playbackOffsetMs} ms.`;
+  }
+}
+
+function createCalibrationToneUrl() {
+  const sampleRate = 22_050;
+  const sampleCount = Math.floor(sampleRate * 0.08);
+  const buffer = new ArrayBuffer(44 + sampleCount * 2);
+  const view = new DataView(buffer);
+  const writeText = (offset, text) => {
+    for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
+  };
+  writeText(0, 'RIFF');
+  view.setUint32(4, 36 + sampleCount * 2, true);
+  writeText(8, 'WAVE');
+  writeText(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeText(36, 'data');
+  view.setUint32(40, sampleCount * 2, true);
+  for (let index = 0; index < sampleCount; index += 1) {
+    const envelope = Math.min(1, index / 150, (sampleCount - index) / 500);
+    const sample = Math.sin((2 * Math.PI * 660 * index) / sampleRate) * envelope * 0.55;
+    view.setInt16(44 + index * 2, sample * 0x7fff, true);
+  }
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
 }
 
 function renderPlayerState() {

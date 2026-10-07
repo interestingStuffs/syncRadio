@@ -265,6 +265,20 @@ main { padding-top: 52px; }
 .offset-button:focus-visible, .offset-reset:focus-visible { outline: 3px solid #80b9a6; outline-offset: 2px; }
 .offset-button:disabled, .offset-reset:disabled { cursor: not-allowed; opacity: 0.4; }
 
+.offset-calibration { margin-top: 12px; color: var(--muted); font-size: 12px; }
+.offset-calibration summary { width: fit-content; cursor: pointer; color: var(--accent-dark); }
+.offset-calibration summary:focus-visible, .calibration-button:focus-visible { outline: 3px solid #80b9a6; outline-offset: 3px; }
+.calibration-content { max-width: 440px; padding: 8px 0 0; }
+.calibration-content > p { margin: 0 0 10px; line-height: 1.5; }
+.calibration-cue { display: flex; align-items: center; gap: 8px; margin: 10px 0; font: 11px var(--mono); }
+.calibration-flash { width: 14px; height: 14px; border: 1px solid var(--accent); border-radius: 50%; background: transparent; transition: background-color 60ms ease; }
+.calibration-flash.is-active { background: var(--accent); }
+.calibration-controls { display: flex; flex-wrap: wrap; gap: 7px; }
+.calibration-button { min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink); cursor: pointer; font-size: 11px; }
+.calibration-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
+.calibration-button:disabled { cursor: not-allowed; opacity: 0.45; }
+.calibration-status { margin: 9px 0 0 !important; color: var(--muted); font-size: 11px; }
+
 .player-error, .configuration-error { margin: 15px 0 0; color: var(--accent-dark); font-size: 12px; line-height: 1.55; }
 
 .sync-status {
