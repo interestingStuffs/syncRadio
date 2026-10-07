@@ -23,6 +23,12 @@ export function savePlaybackOffset(value, storage = getStorage()) {
   return offset;
 }
 
+export function parsePlaybackOffset(value) {
+  if (typeof value !== 'string' || !/^[+-]?\d+$/.test(value)) return null;
+  const offset = Number(value);
+  return Number.isSafeInteger(offset) ? clampOffset(offset) : null;
+}
+
 function clampOffset(value) {
   return Math.min(MAX_PLAYBACK_OFFSET_MS, Math.max(-MAX_PLAYBACK_OFFSET_MS, value));
 }

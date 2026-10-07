@@ -44,6 +44,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     stations: [{ ...station }],
     allowStationSwitch: true,
     stationQueryParam: null,
+    playbackOffsetQueryParam: null,
     timeSources: [{
       name: 'Orologio',
       url: 'https://time.example/api',
@@ -207,6 +208,24 @@ test('valida e normalizza il parametro URL per la selezione della stazione', asy
 
   mockConfig(t, jsonResponse({ stations: [station], stationQueryParam: 42 }));
   await assert.rejects(loadConfig(), /stationQueryParam.*deve essere una stringa/);
+});
+
+test('valida e normalizza il parametro URL per la correzione manuale', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], playbackOffsetQueryParam: '  offset  ' }));
+  assert.equal((await loadConfig()).playbackOffsetQueryParam, 'offset');
+
+  mockConfig(t, jsonResponse({ stations: [station], playbackOffsetQueryParam: '' }));
+  await assert.rejects(loadConfig(), /playbackOffsetQueryParam.*stringa non vuota/);
+
+  mockConfig(t, jsonResponse({ stations: [station], playbackOffsetQueryParam: 42 }));
+  await assert.rejects(loadConfig(), /playbackOffsetQueryParam.*deve essere una stringa/);
+
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    stationQueryParam: 'selection',
+    playbackOffsetQueryParam: 'selection',
+  }));
+  await assert.rejects(loadConfig(), /stationQueryParam e playbackOffsetQueryParam.*devono essere diversi/);
 });
 
 test('rifiuta un valore localFallback non booleano', async (t) => {
