@@ -270,8 +270,10 @@ main { padding-top: 52px; }
 .offset-calibration summary:focus-visible, .calibration-button:focus-visible { outline: 3px solid #80b9a6; outline-offset: 3px; }
 .calibration-content { max-width: 440px; padding: 8px 0 0; }
 .calibration-content > p { margin: 0 0 10px; line-height: 1.5; }
-.calibration-cue { display: flex; align-items: center; gap: 8px; margin: 10px 0; font: 11px var(--mono); }
-.calibration-flash { width: 14px; height: 14px; border: 1px solid var(--accent); border-radius: 50%; background: transparent; transition: background-color 60ms ease; }
+.calibration-cue { display: flex; min-height: 26px; align-items: center; gap: 9px; margin: 10px 0; font: 11px var(--mono); }
+.calibration-step { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: #c3d2cc; transition: background-color 80ms ease, transform 80ms ease; }
+.calibration-step.is-active { transform: scale(1.35); background: var(--accent); }
+.calibration-flash { width: 16px; height: 16px; flex: 0 0 auto; border: 1px solid var(--accent); border-radius: 50%; background: transparent; transition: background-color 60ms ease, box-shadow 60ms ease; }
 .calibration-flash.is-active { background: var(--accent); }
 .calibration-controls { display: flex; flex-wrap: wrap; gap: 7px; }
 .calibration-button { min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink); cursor: pointer; font-size: 11px; }

@@ -80,9 +80,14 @@
             <summary>Calibra a orecchio</summary>
             <div class="calibration-content">
               <p>Confronta il beep con il flash. Se il beep arriva dopo, anticipa l’audio; se arriva prima, ritardalo. Passi di 50 ms, fino a ±500 ms per test.</p>
-              <div class="calibration-cue" aria-hidden="true">
+              <div class="calibration-cue" id="calibration-cue" aria-hidden="true">
+                <span class="calibration-step"></span>
+                <span class="calibration-step"></span>
+                <span class="calibration-step"></span>
+                <span class="calibration-step"></span>
+                <span class="calibration-step"></span>
                 <span class="calibration-flash" id="calibration-flash"></span>
-                <span>flash</span>
+                <span>ora</span>
               </div>
               <div class="calibration-controls">
                 <button class="calibration-button" id="calibration-toggle" type="button" aria-pressed="false">Avvia test</button>

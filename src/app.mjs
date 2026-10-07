@@ -21,7 +21,7 @@ const elements = Object.fromEntries([
   'progress-fill', 'elapsed-time', 'remaining-time', 'tune-button',
   'sync-reset-button', 'sync-reset-status', 'button-icon', 'button-label',
   'offset-decrease', 'offset-increase', 'offset-reset', 'playback-offset',
-  'offset-calibration', 'calibration-flash', 'calibration-toggle',
+  'offset-calibration', 'calibration-cue', 'calibration-flash', 'calibration-toggle',
   'calibration-earlier', 'calibration-later', 'calibration-status',
   'volume-slider', 'volume-toggle', 'player-error', 'configuration-error', 'sync-status', 'sync-icon', 'sync-message',
   'schedule-count', 'schedule-list', 'schedule-footnote', 'on-air-indicator', 'manifest-status',
@@ -541,7 +541,12 @@ function scheduleCalibrationCue() {
   const flashAt = cycleStart + 700;
   const offsetChangeMs = playbackOffsetMs - calibrationBaselineOffsetMs;
   const beepAt = flashAt - audioOutputLatency.getCompensationMs() - offsetChangeMs;
+  const calibrationSteps = elements['calibration-cue'].querySelectorAll('.calibration-step');
+  for (const [index, step] of calibrationSteps.entries()) {
+    scheduleCalibrationTimeout(() => step.classList.add('is-active'), Math.max(0, cycleStart + index * 110 - performance.now()));
+  }
   scheduleCalibrationTimeout(() => {
+    for (const step of calibrationSteps) step.classList.remove('is-active');
     elements['calibration-flash'].classList.add('is-active');
     scheduleCalibrationTimeout(() => {
       elements['calibration-flash'].classList.remove('is-active');
@@ -588,6 +593,9 @@ function stopOffsetCalibration(statusMessage = null) {
     calibrationAudioUrl = null;
   }
   elements['calibration-flash'].classList.remove('is-active');
+  for (const step of elements['calibration-cue'].querySelectorAll('.calibration-step')) {
+    step.classList.remove('is-active');
+  }
   elements['calibration-toggle'].textContent = 'Avvia test';
   elements['calibration-toggle'].setAttribute('aria-pressed', 'false');
   renderPlaybackOffset();
