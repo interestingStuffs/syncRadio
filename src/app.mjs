@@ -14,6 +14,7 @@ import { buildSchedule, locateTrack } from './timeline.mjs';
 
 const TRACK_PRELOAD_LOOKAHEAD_MS = 10_000;
 const MAX_CALIBRATION_ADJUSTMENT_MS = 500;
+const CALIBRATION_STEP_INTERVAL_MS = 140;
 
 const elements = Object.fromEntries([
   'station-name', 'station-description', 'station-switcher', 'station-select', 'clock-label',
@@ -544,19 +545,27 @@ function scheduleCalibrationCue() {
   const precedingSteps = elements['calibration-cue'].querySelectorAll('.calibration-step-before');
   const followingSteps = elements['calibration-cue'].querySelectorAll('.calibration-step-after');
   for (const step of followingSteps) step.classList.remove('is-active');
-  for (const [index, step] of precedingSteps.entries()) {
-    scheduleCalibrationTimeout(() => step.classList.add('is-active'), Math.max(0, cycleStart + index * 110 - performance.now()));
-  }
-  scheduleCalibrationTimeout(() => {
-    for (const step of precedingSteps) step.classList.remove('is-active');
-    elements['calibration-flash'].classList.add('is-active');
-    scheduleCalibrationTimeout(() => {
-      elements['calibration-flash'].classList.remove('is-active');
-    }, 120);
-  }, Math.max(0, flashAt - performance.now()));
-  for (const [index, step] of followingSteps.entries()) {
-    scheduleCalibrationTimeout(() => step.classList.add('is-active'), Math.max(0, flashAt + 180 + index * 110 - performance.now()));
-  }
+  const visualEvents = [
+    ...[...precedingSteps].map((step, index) => ({
+      at: cycleStart + index * CALIBRATION_STEP_INTERVAL_MS,
+      run: () => step.classList.add('is-active'),
+    })),
+    {
+      at: flashAt,
+      run: () => {
+        for (const step of precedingSteps) step.classList.remove('is-active');
+        elements['calibration-flash'].classList.add('is-active');
+        scheduleCalibrationTimeout(() => {
+          elements['calibration-flash'].classList.remove('is-active');
+        }, 120);
+      },
+    },
+    ...[...followingSteps].map((step, index) => ({
+      at: flashAt + 180 + index * CALIBRATION_STEP_INTERVAL_MS,
+      run: () => step.classList.add('is-active'),
+    })),
+  ];
+  scheduleCalibrationVisualEvent(visualEvents, 0);
   scheduleCalibrationTimeout(() => {
     const audio = calibrationAudio;
     if (!audio) return;
@@ -567,6 +576,15 @@ function scheduleCalibrationCue() {
     });
   }, Math.max(0, beepAt - performance.now()));
   scheduleCalibrationTimeout(scheduleCalibrationCue, Math.max(0, cycleStart + 1800 - performance.now()));
+}
+
+function scheduleCalibrationVisualEvent(events, index) {
+  if (!calibrationAudio || index >= events.length) return;
+  const event = events[index];
+  scheduleCalibrationTimeout(() => {
+    event.run();
+    scheduleCalibrationVisualEvent(events, index + 1);
+  }, Math.max(0, event.at - performance.now()));
 }
 
 function scheduleCalibrationTimeout(callback, delayMs) {
