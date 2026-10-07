@@ -59,5 +59,7 @@
   ],
   "resyncIntervalMs": 15000,
   "requestTimeoutMs": 5000,
+  "maxOutputLatencyCompensationMs": 100,
+  "outputLatencyRefreshIntervalMs": 30000,
   "localFallback": false
 }

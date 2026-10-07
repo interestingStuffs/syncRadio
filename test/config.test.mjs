@@ -54,6 +54,8 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     }],
     resyncIntervalMs: 30000,
     requestTimeoutMs: 8000,
+    maxOutputLatencyCompensationMs: 100,
+    outputLatencyRefreshIntervalMs: 30000,
     localFallback: true,
     useManifestDurations: false,
   });
@@ -74,8 +76,33 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
   assert.equal(config.allowStationSwitch, false);
   assert.equal(config.resyncIntervalMs, 15000);
   assert.equal(config.requestTimeoutMs, 2500);
+  assert.equal(config.maxOutputLatencyCompensationMs, 100);
+  assert.equal(config.outputLatencyRefreshIntervalMs, 30000);
   assert.equal(config.localFallback, false);
   assert.equal(config.useManifestDurations, false);
+});
+
+test('carica i limiti configurati per la misura della latenza audio', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    maxOutputLatencyCompensationMs: 75,
+    outputLatencyRefreshIntervalMs: 60000,
+  }));
+
+  const config = await loadConfig();
+  assert.equal(config.maxOutputLatencyCompensationMs, 75);
+  assert.equal(config.outputLatencyRefreshIntervalMs, 60000);
+});
+
+test('rifiuta limiti non validi per la latenza audio', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], maxOutputLatencyCompensationMs: -1 }));
+  await assert.rejects(loadConfig(), /maxOutputLatencyCompensationMs.*tra 0 e 1000/);
+
+  mockConfig(t, jsonResponse({ stations: [station], maxOutputLatencyCompensationMs: 1001 }));
+  await assert.rejects(loadConfig(), /maxOutputLatencyCompensationMs.*tra 0 e 1000/);
+
+  mockConfig(t, jsonResponse({ stations: [station], outputLatencyRefreshIntervalMs: 500 }));
+  await assert.rejects(loadConfig(), /outputLatencyRefreshIntervalMs.*tra 1000 e/);
 });
 
 test('disattiva il servizio orario proprietario finché l’URL è vuoto', async (t) => {

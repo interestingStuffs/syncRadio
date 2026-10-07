@@ -1,4 +1,8 @@
 const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_OUTPUT_LATENCY_REFRESH_INTERVAL_MS = 30000;
+const DEFAULT_MAX_OUTPUT_LATENCY_COMPENSATION_MS = 100;
+const MAX_OUTPUT_LATENCY_COMPENSATION_MS = 1000;
+const MIN_OUTPUT_LATENCY_REFRESH_INTERVAL_MS = 1000;
 
 export async function loadConfig() {
   const response = await fetch('./config.json', { cache: 'no-store' });
@@ -46,6 +50,20 @@ export async function loadConfig() {
   if (config.useManifestDurations !== undefined && typeof config.useManifestDurations !== 'boolean') {
     throw new Error('Il valore "useManifestDurations" in config.json deve essere true o false.');
   }
+  const maxOutputLatencyCompensationMs = boundedNumber(
+    config.maxOutputLatencyCompensationMs,
+    DEFAULT_MAX_OUTPUT_LATENCY_COMPENSATION_MS,
+    0,
+    MAX_OUTPUT_LATENCY_COMPENSATION_MS,
+    'maxOutputLatencyCompensationMs',
+  );
+  const outputLatencyRefreshIntervalMs = boundedNumber(
+    config.outputLatencyRefreshIntervalMs,
+    DEFAULT_OUTPUT_LATENCY_REFRESH_INTERVAL_MS,
+    MIN_OUTPUT_LATENCY_REFRESH_INTERVAL_MS,
+    Number.MAX_SAFE_INTEGER,
+    'outputLatencyRefreshIntervalMs',
+  );
 
   return {
     stations,
@@ -56,6 +74,8 @@ export async function loadConfig() {
     timeSources,
     resyncIntervalMs: positiveNumber(config.resyncIntervalMs, 30000),
     requestTimeoutMs: positiveNumber(config.requestTimeoutMs, DEFAULT_TIMEOUT_MS),
+    maxOutputLatencyCompensationMs,
+    outputLatencyRefreshIntervalMs,
     localFallback: config.localFallback !== false,
   };
 }
@@ -101,6 +121,16 @@ function requireString(value, name) {
 
 function positiveNumber(value, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function boundedNumber(value, fallback, minimum, maximum, name) {
+  if (value === undefined) return fallback;
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    throw new Error(
+      `Il valore "${name}" in config.json deve essere un numero tra ${minimum} e ${maximum}.`,
+    );
+  }
+  return value;
 }
 
 function hasTimezone(value) {

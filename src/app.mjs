@@ -39,6 +39,7 @@ let stationLoadId = 0;
 let playbackCycleIndex = null;
 let playbackOffsetMs = loadPlaybackOffset();
 let synchronizationResetPending = false;
+let audioOutputLatencyMonitoringStarted = false;
 
 async function start() {
   try {
@@ -70,7 +71,9 @@ async function start() {
     },
     onStateChange: renderPlayerState,
   });
-  audioOutputLatency = createAudioOutputLatencyMonitor();
+  audioOutputLatency = createAudioOutputLatencyMonitor({
+    maxCompensationMs: config.maxOutputLatencyCompensationMs,
+  });
   player.setVolume(Number(elements['volume-slider'].value));
   renderVolumeState();
   elements['volume-slider'].addEventListener('input', (event) => {
@@ -128,6 +131,7 @@ async function start() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       clock.synchronize().then(renderClockStatus, renderClockStatus).then(() => {
+        if (audioOutputLatencyMonitoringStarted) void refreshAudioOutputLatency();
         syncPlayback();
         render();
       });
@@ -393,10 +397,12 @@ async function toggleTuning() {
   try {
     await player.tune(position.track, getPlayerOffset(position.offsetMs));
     await latencyMeasurement;
+    audioOutputLatency.applyMeasurement();
     renderAudioOutputLatency();
     if (tunedIn && audioOutputLatency.getCompensationMs() !== previousCompensationMs) {
       await realignPlayback();
     }
+    startAudioOutputLatencyMonitoring();
   } catch (error) {
     tunedIn = false;
     player.pause();
@@ -452,6 +458,9 @@ async function resetSynchronization() {
 
   try {
     await clock.reset();
+    await audioOutputLatency.measure();
+    audioOutputLatency.applyMeasurement();
+    renderAudioOutputLatency();
     renderClockStatus();
     const realigned = tunedIn ? await realignPlayback() : true;
     elements['sync-reset-status'].textContent = realigned
@@ -470,6 +479,20 @@ async function resetSynchronization() {
     elements['sync-reset-button'].textContent = 'Risincronizza dispositivi';
     elements['sync-reset-status'].hidden = false;
   }
+}
+
+function startAudioOutputLatencyMonitoring() {
+  if (audioOutputLatencyMonitoringStarted) return;
+  audioOutputLatencyMonitoringStarted = true;
+  globalThis.navigator?.mediaDevices?.addEventListener?.('devicechange', refreshAudioOutputLatency);
+  window.setInterval(() => {
+    if (document.visibilityState === 'visible') void refreshAudioOutputLatency();
+  }, config.outputLatencyRefreshIntervalMs);
+}
+
+async function refreshAudioOutputLatency() {
+  await audioOutputLatency.measure();
+  renderAudioOutputLatency();
 }
 
 function locatePlaybackPosition(timestamp) {
