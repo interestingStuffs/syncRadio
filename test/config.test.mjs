@@ -57,6 +57,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     outputLatencyRefreshIntervalMs: 30000,
     localFallback: true,
     useManifestDurations: false,
+    showPlaybackCalibration: true,
   });
 });
 
@@ -79,6 +80,7 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
   assert.equal(config.outputLatencyRefreshIntervalMs, 30000);
   assert.equal(config.localFallback, false);
   assert.equal(config.useManifestDurations, false);
+  assert.equal(config.showPlaybackCalibration, true);
 });
 
 test('carica i limiti configurati per la misura della latenza audio', async (t) => {
@@ -252,6 +254,14 @@ test('abilita le durate dichiarate e rifiuta un valore non booleano', async (t) 
 
   mockConfig(t, jsonResponse({ stations: [station], useManifestDurations: 'true' }));
   await assert.rejects(loadConfig(), /useManifestDurations.*true o false/);
+});
+
+test('configura la visibilità della calibrazione guidata', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], showPlaybackCalibration: false }));
+  assert.equal((await loadConfig()).showPlaybackCalibration, false);
+
+  mockConfig(t, jsonResponse({ stations: [station], showPlaybackCalibration: 'false' }));
+  await assert.rejects(loadConfig(), /showPlaybackCalibration.*true o false/);
 });
 
 test('valida e normalizza la ripetizione per stazione', async (t) => {

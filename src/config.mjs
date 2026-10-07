@@ -41,6 +41,9 @@ export async function loadConfig() {
   if (config.useManifestDurations !== undefined && typeof config.useManifestDurations !== 'boolean') {
     throw new Error('Il valore "useManifestDurations" in config.json deve essere true o false.');
   }
+  if (config.showPlaybackCalibration !== undefined && typeof config.showPlaybackCalibration !== 'boolean') {
+    throw new Error('Il valore "showPlaybackCalibration" in config.json deve essere true o false.');
+  }
   const maxOutputLatencyCompensationMs = boundedNumber(
     config.maxOutputLatencyCompensationMs,
     DEFAULT_MAX_OUTPUT_LATENCY_COMPENSATION_MS,
@@ -61,6 +64,7 @@ export async function loadConfig() {
     allowStationSwitch: config.allowStationSwitch === true,
     stationQueryParam,
     useManifestDurations: config.useManifestDurations === true,
+    showPlaybackCalibration: config.showPlaybackCalibration !== false,
     timeSources,
     resyncIntervalMs: positiveNumber(config.resyncIntervalMs, 30000),
     requestTimeoutMs: positiveNumber(config.requestTimeoutMs, DEFAULT_TIMEOUT_MS),

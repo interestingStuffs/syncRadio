@@ -55,6 +55,7 @@ async function start() {
     showConfigurationError(error.message);
     return;
   }
+  elements['offset-calibration'].hidden = !config.showPlaybackCalibration;
 
   clock = createClock({
     sources: config.timeSources,
