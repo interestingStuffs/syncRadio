@@ -3,11 +3,27 @@
   "useManifestDurations": true,
   "stations": [
     {
-      "id": "radio-esempio",
-      "name": "Radio Esempio",
-      "description": "Una scaletta dimostrativa",
-      "manifestUrl": "samples/station-manifest.csv",
-      "timelineStartsAt": "2026-10-06T11:20:30.000Z",
+      "id": "sation-1",
+      "name": "Relaxing",
+      "description": "sample playlist",
+      "manifestUrl": "samples/station-1.csv",
+      "timelineStartsAt": "2026-10-07T08:00:30.000Z",
+      "repeat": true
+    },
+    {
+      "id": "station-2",
+      "name": "Powerful",
+      "description": "sample playlist",
+      "manifestUrl": "samples/station-2.csv",
+      "timelineStartsAt": "2026-10-07T08:00:30.000Z",
+      "repeat": true
+    },
+    {
+      "id": "station-3",
+      "name": "Move!",
+      "description": "sample playlist",
+      "manifestUrl": "samples/station-2.csv",
+      "timelineStartsAt": "2026-10-07T08:00:30.000Z",
       "repeat": true
     }
   ],
