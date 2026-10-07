@@ -45,7 +45,7 @@ By default, the app reads each audio file's duration from its metadata. With `us
 
 ## Clock and playback
 
-`timeSources` is an ordered list of UTC time providers. Each provider specifies `name`, `url`, and `responsePath`; optionally set `timeZonePath` or `responseFormat` (`json` or `text`). Providers are tried in order. An optional `customTimeSource` is tried first when its URL is non-empty.
+`timeSources` is an ordered list of UTC time providers. Each provider specifies `name`, `url`, and `responsePath`; optionally set `timeZonePath` or `responseFormat` (`json` or `text`). Providers are tried in order. An optional `customTimeSource` is tried first when its URL is non-empty. Set `customTimeSourceOnly: true` to use only that source and never try providers from `timeSources`; if the custom URL is empty, no time provider is used.
 
 The app periodically samples the active provider, estimates UTC using the browser's monotonic clock, and uses the device clock only when `localFallback` is enabled. Time providers, manifests, and audio files must be reachable by the browser; cross-origin resources must allow CORS. Browser timer throttling, network delay, and audio-device buffering mean exact synchronization cannot be guaranteed.
 

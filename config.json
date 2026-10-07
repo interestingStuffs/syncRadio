@@ -10,6 +10,7 @@
     "timeZonePath": "",
     "responseFormat": "json"
   },
+  "customTimeSourceOnly": false,
   "stations": [
     {
       "id": "sation-1",

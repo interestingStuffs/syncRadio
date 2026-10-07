@@ -44,6 +44,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     stations: [{ ...station }],
     allowStationSwitch: true,
     stationQueryParam: null,
+    customTimeSourceOnly: false,
     timeSources: [{
       name: 'Orologio',
       url: 'https://time.example/api',
@@ -74,6 +75,7 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
   assert.deepEqual(config.timeSources, []);
   assert.deepEqual(config.stations, [station]);
   assert.equal(config.allowStationSwitch, false);
+  assert.equal(config.customTimeSourceOnly, false);
   assert.equal(config.resyncIntervalMs, 15000);
   assert.equal(config.requestTimeoutMs, 2500);
   assert.equal(config.maxOutputLatencyCompensationMs, 100);
@@ -152,6 +154,46 @@ test('prova il servizio orario proprietario per primo quando configurato', async
   assert.equal(config.timeSources[0].name, 'SyncRadio UTC');
   assert.equal(config.timeSources[0].responsePath, 'data.utc');
   assert.deepEqual(config.timeSources.map(({ name }) => name), ['SyncRadio UTC', 'Pubblico']);
+});
+
+test('usa solo il servizio orario proprietario quando configurato in modalità esclusiva', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    customTimeSource: {
+      name: 'Orologio LAN',
+      url: 'http://192.168.1.20:8080/time',
+      responsePath: 'utc',
+    },
+    customTimeSourceOnly: true,
+    timeSources: [{
+      name: 'Pubblico',
+      url: 'https://time.example/api',
+      responsePath: 'utc',
+    }],
+  }));
+
+  const config = await loadConfig();
+
+  assert.equal(config.customTimeSourceOnly, true);
+  assert.deepEqual(config.timeSources.map(({ name }) => name), ['Orologio LAN']);
+});
+
+test('non usa sorgenti orarie pubbliche in modalità esclusiva senza URL personalizzato', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    customTimeSource: { url: '' },
+    customTimeSourceOnly: true,
+    timeSources: [{
+      name: 'Pubblico',
+      url: 'https://time.example/api',
+      responsePath: 'utc',
+    }],
+  }));
+
+  const config = await loadConfig();
+
+  assert.equal(config.customTimeSourceOnly, true);
+  assert.deepEqual(config.timeSources, []);
 });
 
 test('valida URL e formato del servizio orario proprietario anche se attivato', async (t) => {
@@ -246,6 +288,11 @@ test('ignora la vecchia configurazione del parametro URL per l’offset', async 
 test('rifiuta un valore localFallback non booleano', async (t) => {
   mockConfig(t, jsonResponse({ stations: [station], localFallback: 'true' }));
   await assert.rejects(loadConfig(), /deve essere true o false/);
+});
+
+test('rifiuta un valore customTimeSourceOnly non booleano', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], customTimeSourceOnly: 'true' }));
+  await assert.rejects(loadConfig(), /customTimeSourceOnly.*true o false/);
 });
 
 test('abilita le durate dichiarate e rifiuta un valore non booleano', async (t) => {

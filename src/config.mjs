@@ -23,9 +23,15 @@ export async function loadConfig() {
     ? null
     : validateCustomTimeSource(config.customTimeSource);
   const configuredTimeSources = config.timeSources === undefined ? [] : validateTimeSources(config.timeSources);
-  const timeSources = customTimeSource
-    ? [customTimeSource, ...configuredTimeSources]
-    : configuredTimeSources;
+  if (config.customTimeSourceOnly !== undefined && typeof config.customTimeSourceOnly !== 'boolean') {
+    throw new Error('Il valore "customTimeSourceOnly" in config.json deve essere true o false.');
+  }
+  const customTimeSourceOnly = config.customTimeSourceOnly === true;
+  const timeSources = customTimeSourceOnly
+    ? (customTimeSource ? [customTimeSource] : [])
+    : customTimeSource
+      ? [customTimeSource, ...configuredTimeSources]
+      : configuredTimeSources;
   if (config.localFallback !== undefined && typeof config.localFallback !== 'boolean') {
     throw new Error('Il valore "localFallback" in config.json deve essere true o false.');
   }
@@ -66,6 +72,7 @@ export async function loadConfig() {
     useManifestDurations: config.useManifestDurations === true,
     showPlaybackCalibration: config.showPlaybackCalibration !== false,
     timeSources,
+    customTimeSourceOnly,
     resyncIntervalMs: positiveNumber(config.resyncIntervalMs, 30000),
     requestTimeoutMs: positiveNumber(config.requestTimeoutMs, DEFAULT_TIMEOUT_MS),
     maxOutputLatencyCompensationMs,
