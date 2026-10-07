@@ -21,7 +21,7 @@ const elements = Object.fromEntries([
   'progress-fill', 'elapsed-time', 'remaining-time', 'tune-button',
   'sync-reset-button', 'sync-reset-status', 'button-icon', 'button-label',
   'offset-decrease', 'offset-increase', 'offset-reset', 'playback-offset',
-  'offset-calibration', 'calibration-flash', 'calibration-start', 'calibration-stop',
+  'offset-calibration', 'calibration-flash', 'calibration-toggle',
   'calibration-earlier', 'calibration-later', 'calibration-status',
   'volume-slider', 'volume-toggle', 'player-error', 'configuration-error', 'sync-status', 'sync-icon', 'sync-message',
   'schedule-count', 'schedule-list', 'schedule-footnote', 'on-air-indicator', 'manifest-status',
@@ -92,8 +92,13 @@ async function start() {
   elements['offset-decrease'].addEventListener('click', () => changePlaybackOffset(-PLAYBACK_OFFSET_STEP_MS));
   elements['offset-increase'].addEventListener('click', () => changePlaybackOffset(PLAYBACK_OFFSET_STEP_MS));
   elements['offset-reset'].addEventListener('click', () => changePlaybackOffset(-playbackOffsetMs));
-  elements['calibration-start'].addEventListener('click', startOffsetCalibration);
-  elements['calibration-stop'].addEventListener('click', () => stopOffsetCalibration());
+  elements['calibration-toggle'].addEventListener('click', () => {
+    if (calibrationAudio) {
+      stopOffsetCalibration();
+    } else {
+      startOffsetCalibration();
+    }
+  });
   elements['calibration-earlier'].addEventListener('click', () => adjustOffsetCalibration(-PLAYBACK_OFFSET_STEP_MS));
   elements['calibration-later'].addEventListener('click', () => adjustOffsetCalibration(PLAYBACK_OFFSET_STEP_MS));
   elements['offset-calibration'].addEventListener('toggle', (event) => {
@@ -517,14 +522,14 @@ function renderPlaybackOffset() {
 }
 
 function startOffsetCalibration() {
-  stopOffsetCalibration();
+  if (calibrationAudio) return;
   calibrationBaselineOffsetMs = playbackOffsetMs;
   calibrationAudio = new Audio(createCalibrationToneUrl());
   calibrationAudioUrl = calibrationAudio.src;
   calibrationAudio.volume = Number(elements['volume-slider'].value);
   calibrationAudio.muted = player?.isMuted() ?? false;
-  elements['calibration-start'].hidden = true;
-  elements['calibration-stop'].hidden = false;
+  elements['calibration-toggle'].textContent = 'Termina';
+  elements['calibration-toggle'].setAttribute('aria-pressed', 'true');
   elements['calibration-status'].textContent = 'Test in corso: confronta il beep con il flash e regola finché sembrano simultanei.';
   renderPlaybackOffset();
   scheduleCalibrationCue();
@@ -583,8 +588,8 @@ function stopOffsetCalibration(statusMessage = null) {
     calibrationAudioUrl = null;
   }
   elements['calibration-flash'].classList.remove('is-active');
-  elements['calibration-start'].hidden = false;
-  elements['calibration-stop'].hidden = true;
+  elements['calibration-toggle'].textContent = 'Avvia test';
+  elements['calibration-toggle'].setAttribute('aria-pressed', 'false');
   renderPlaybackOffset();
   if (statusMessage) {
     elements['calibration-status'].textContent = statusMessage;
