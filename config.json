@@ -22,7 +22,7 @@
       "id": "station-3",
       "name": "Move!",
       "description": "sample playlist",
-      "manifestUrl": "samples/station-2.csv",
+      "manifestUrl": "samples/station-3.csv",
       "timelineStartsAt": "2026-10-07T08:00:30.000Z",
       "repeat": true
     }
