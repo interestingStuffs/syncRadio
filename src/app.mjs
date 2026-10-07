@@ -541,17 +541,22 @@ function scheduleCalibrationCue() {
   const flashAt = cycleStart + 700;
   const offsetChangeMs = playbackOffsetMs - calibrationBaselineOffsetMs;
   const beepAt = flashAt - audioOutputLatency.getCompensationMs() - offsetChangeMs;
-  const calibrationSteps = elements['calibration-cue'].querySelectorAll('.calibration-step');
-  for (const [index, step] of calibrationSteps.entries()) {
+  const precedingSteps = elements['calibration-cue'].querySelectorAll('.calibration-step-before');
+  const followingSteps = elements['calibration-cue'].querySelectorAll('.calibration-step-after');
+  for (const step of followingSteps) step.classList.remove('is-active');
+  for (const [index, step] of precedingSteps.entries()) {
     scheduleCalibrationTimeout(() => step.classList.add('is-active'), Math.max(0, cycleStart + index * 110 - performance.now()));
   }
   scheduleCalibrationTimeout(() => {
-    for (const step of calibrationSteps) step.classList.remove('is-active');
+    for (const step of precedingSteps) step.classList.remove('is-active');
     elements['calibration-flash'].classList.add('is-active');
     scheduleCalibrationTimeout(() => {
       elements['calibration-flash'].classList.remove('is-active');
     }, 120);
   }, Math.max(0, flashAt - performance.now()));
+  for (const [index, step] of followingSteps.entries()) {
+    scheduleCalibrationTimeout(() => step.classList.add('is-active'), Math.max(0, flashAt + 180 + index * 110 - performance.now()));
+  }
   scheduleCalibrationTimeout(() => {
     const audio = calibrationAudio;
     if (!audio) return;
