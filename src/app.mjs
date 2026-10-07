@@ -577,13 +577,15 @@ function adjustOffsetCalibration(changeMs) {
   if (Math.abs(nextDelta) > MAX_CALIBRATION_ADJUSTMENT_MS) return;
   changePlaybackOffset(changeMs);
   if (!calibrationAudio) return;
+  clearCalibrationCueTimers();
+  resetCalibrationCueVisuals();
   elements['calibration-status'].textContent = `Offset aggiornato a ${playbackOffsetMs} ms. Continua finché beep e flash sembrano simultanei.`;
+  scheduleCalibrationCue();
 }
 
 function stopOffsetCalibration(statusMessage = null) {
   const wasRunning = Boolean(calibrationAudio);
-  for (const timer of calibrationTimers) window.clearTimeout(timer);
-  calibrationTimers = [];
+  clearCalibrationCueTimers();
   if (calibrationAudio) {
     calibrationAudio.pause();
     calibrationAudio.removeAttribute('src');
@@ -592,10 +594,7 @@ function stopOffsetCalibration(statusMessage = null) {
     if (calibrationAudioUrl) URL.revokeObjectURL(calibrationAudioUrl);
     calibrationAudioUrl = null;
   }
-  elements['calibration-flash'].classList.remove('is-active');
-  for (const step of elements['calibration-cue'].querySelectorAll('.calibration-step')) {
-    step.classList.remove('is-active');
-  }
+  resetCalibrationCueVisuals();
   elements['calibration-toggle'].textContent = 'Avvia test';
   elements['calibration-toggle'].setAttribute('aria-pressed', 'false');
   renderPlaybackOffset();
@@ -603,6 +602,18 @@ function stopOffsetCalibration(statusMessage = null) {
     elements['calibration-status'].textContent = statusMessage;
   } else if (wasRunning) {
     elements['calibration-status'].textContent = `Test terminato. Offset mantenuto: ${playbackOffsetMs} ms.`;
+  }
+}
+
+function clearCalibrationCueTimers() {
+  for (const timer of calibrationTimers) window.clearTimeout(timer);
+  calibrationTimers = [];
+}
+
+function resetCalibrationCueVisuals() {
+  elements['calibration-flash'].classList.remove('is-active');
+  for (const step of elements['calibration-cue'].querySelectorAll('.calibration-step')) {
+    step.classList.remove('is-active');
   }
 }
 
