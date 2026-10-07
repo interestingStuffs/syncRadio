@@ -13,11 +13,12 @@ function response(payload, status = 200) {
     ok: status >= 200 && status < 300,
     status,
     json: async () => payload,
+    text: async () => payload,
   };
 }
 
-function source(name, url, responsePath = 'utc', timeZonePath = '') {
-  return { name, url, responsePath, timeZonePath };
+function source(name, url, responsePath = 'utc', timeZonePath = '', responseFormat = 'json') {
+  return { name, url, responsePath, timeZonePath, responseFormat };
 }
 
 test('sincronizza dal provider primario e stima il tempo con l’orologio monotono', async (t) => {
@@ -154,6 +155,20 @@ test('usa il provider successivo quando il primario fallisce', async (t) => {
   assert.equal(status.attempts[1].state, 'ok');
   assert.equal(status.attempts[2].state, 'skipped');
   assert.match(status.sourceWarning, /Primario.*HTTP 502/);
+});
+
+test('legge il timestamp Unix in secondi da una risposta testuale', async (t) => {
+  const timestamp = Date.now();
+  t.mock.method(globalThis, 'fetch', async () => response(`ts=${timestamp / 1000}\ncolo=AMS\n`));
+  const clock = createClock({
+    sources: [source('Cloudflare', 'https://cloudflare.example/trace', 'ts', '', 'text')],
+  });
+
+  const status = await clock.synchronize();
+
+  assert.equal(status.source, 'Cloudflare');
+  assert.equal(status.attempts[0].state, 'ok');
+  assert.ok(Math.abs(clock.now() - timestamp) < 1000);
 });
 
 test('interpreta un timestamp senza offset solo con zona UTC esplicita', async (t) => {

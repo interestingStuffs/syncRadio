@@ -36,6 +36,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
       name: ' Orologio ',
       url: 'https://time.example/api',
       responsePath: 'data.utc',
+      responseFormat: 'json',
     }],
   }));
 
@@ -47,6 +48,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
       url: 'https://time.example/api',
       responsePath: 'data.utc',
       timeZonePath: '',
+      responseFormat: 'json',
     }],
     resyncIntervalMs: 30000,
     requestTimeoutMs: 8000,
@@ -98,6 +100,19 @@ test('rifiuta sorgenti orarie malformate o URL non HTTP', async (t) => {
     timeSources: [{ name: 'Orologio', url: 'file:///clock.json' }],
   }));
   await assert.rejects(loadConfig(), /deve usare HTTP o HTTPS/);
+});
+
+test('rifiuta formati di risposta delle sorgenti orarie non supportati', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    timeSources: [{
+      name: 'Orologio',
+      url: 'https://time.example/api',
+      responsePath: 'utc',
+      responseFormat: 'xml',
+    }],
+  }));
+  await assert.rejects(loadConfig(), /responseFormat deve essere "json" o "text"/);
 });
 
 test('valida metadati, URL e ID univoci delle stazioni', async (t) => {

@@ -194,15 +194,21 @@ async function requestTime(source, timeoutMs) {
   if (!response.ok) throw new Error(`servizio non disponibile (HTTP ${response.status}).`);
 
   let payload;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new Error('la risposta non contiene JSON valido.');
+  if (source.responseFormat === 'text') {
+    payload = parseTextFields(await response.text());
+  } else {
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error('la risposta non contiene JSON valido.');
+    }
   }
   const requestEnd = performance.now();
   const rawTime = readPath(payload, source.responsePath);
   const responseZone = source.timeZonePath ? readPath(payload, source.timeZonePath) : '';
-  const utcMs = parseUtcTimestamp(rawTime, responseZone);
+  const utcMs = source.responseFormat === 'text' && isUnixSeconds(rawTime)
+    ? Number(rawTime) * 1000
+    : parseUtcTimestamp(rawTime, responseZone);
   if (!Number.isFinite(utcMs)) {
     throw new Error('timestamp UTC mancante o non valido. Controlla responsePath e timeZonePath.');
   }
@@ -215,6 +221,19 @@ async function requestTime(source, timeoutMs) {
     requestDurationMs: requestEnd - requestStart,
     httpStatus: response.status,
   };
+}
+
+function parseTextFields(value) {
+  return Object.fromEntries(value.split(/\r?\n/).flatMap((line) => {
+    const separator = line.indexOf('=');
+    return separator > 0
+      ? [[line.slice(0, separator).trim(), line.slice(separator + 1).trim()]]
+      : [];
+  }));
+}
+
+function isUnixSeconds(value) {
+  return typeof value === 'string' && /^\d{10}(?:\.\d+)?$/.test(value);
 }
 
 function parseUtcTimestamp(value, zone) {

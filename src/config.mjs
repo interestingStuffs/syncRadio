@@ -96,7 +96,11 @@ function validateTimeSources(value) {
     const url = requireString(source.url, `${label}.url`);
     const responsePath = requireString(source.responsePath, `${label}.responsePath`);
     const timeZonePath = requireString(source.timeZonePath ?? '', `${label}.timeZonePath`);
+    const responseFormat = source.responseFormat ?? 'json';
     if (!name || !url) throw new Error(`${label} richiede name e url.`);
+    if (responseFormat !== 'json' && responseFormat !== 'text') {
+      throw new Error(`${label}.responseFormat deve essere "json" o "text".`);
+    }
 
     let parsedUrl;
     try {
@@ -108,6 +112,6 @@ function validateTimeSources(value) {
       throw new Error(`${label}.url deve usare HTTP o HTTPS.`);
     }
 
-    return { name, url: parsedUrl.href, responsePath, timeZonePath };
+    return { name, url: parsedUrl.href, responsePath, timeZonePath, responseFormat };
   });
 }

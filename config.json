@@ -39,9 +39,22 @@
       "url": "https://worldtimeapi.org/api/timezone/Etc/UTC",
       "responsePath": "utc_datetime",
       "timeZonePath": ""
+    },
+    {
+      "name": "TimeAPI.io · UTC (host alternativo)",
+      "url": "https://www.timeapi.io/api/Time/current/zone?timeZone=UTC",
+      "responsePath": "dateTime",
+      "timeZonePath": "timeZone"
+    },
+    {
+      "name": "Cloudflare · UTC (fallback)",
+      "url": "https://www.cloudflare.com/cdn-cgi/trace",
+      "responsePath": "ts",
+      "timeZonePath": "",
+      "responseFormat": "text"
     }
   ],
-  "resyncIntervalMs": 3000,
+  "resyncIntervalMs": 15000,
   "requestTimeoutMs": 5000,
   "localFallback": false
 }
