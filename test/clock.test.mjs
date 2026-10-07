@@ -40,7 +40,7 @@ test('sincronizza dal provider primario e stima il tempo con l’orologio monoto
 
 test('sceglie il campione con RTT minimo tra le misure dello stesso provider', async (t) => {
   let monotonicMs = 0;
-  const durations = [80, 10, 40, 30, 20];
+  const durations = [80, 10, 40, 30, 20, 70, 60, 50, 40, 30];
   let requestIndex = 0;
   const timestamp = new Date().toISOString();
   t.mock.method(performance, 'now', () => monotonicMs);
@@ -54,16 +54,20 @@ test('sceglie il campione con RTT minimo tra le misure dello stesso provider', a
 
   const status = await clock.synchronize();
 
-  assert.equal(requestIndex, 5);
-  assert.equal(status.attempts[0].sampleCount, 5);
-  assert.equal(status.lastSample.sampleCount, 5);
+  assert.equal(requestIndex, 10);
+  assert.equal(status.attempts[0].sampleCount, 10);
+  assert.equal(status.lastSample.sampleCount, 10);
   assert.equal(status.lastSample.latencyMs, 10);
   assert.equal(status.uncertaintyMs, 5);
 });
 
 test('riusa il minimo RTT recente e scarta le misure scadute', async (t) => {
   let monotonicMs = 0;
-  const durations = [80, 10, 40, 30, 20, 80, 90, 100, 110, 120, 70, 60, 50, 40, 30];
+  const durations = [
+    80, 10, 40, 30, 20, 80, 90, 100, 110, 120,
+    70, 60, 50, 40, 30, 80, 90, 100, 110, 120,
+    70, 60, 50, 40, 30, 80, 90, 100, 110, 120,
+  ];
   let requestIndex = 0;
   t.mock.method(performance, 'now', () => monotonicMs);
   t.mock.method(globalThis, 'fetch', async () => {
@@ -77,21 +81,25 @@ test('riusa il minimo RTT recente e scarta le misure scadute', async (t) => {
   const firstStatus = await clock.synchronize();
   const secondStatus = await clock.synchronize();
 
-  assert.equal(firstStatus.lastSample.sampleCount, 5);
-  assert.equal(secondStatus.lastSample.sampleCount, 10);
+  assert.equal(firstStatus.lastSample.sampleCount, 10);
+  assert.equal(secondStatus.lastSample.sampleCount, 20);
   assert.equal(secondStatus.lastSample.latencyMs, 10);
 
   monotonicMs += 120_001;
   const expiredStatus = await clock.synchronize();
 
-  assert.equal(expiredStatus.lastSample.sampleCount, 5);
+  assert.equal(expiredStatus.lastSample.sampleCount, 10);
   assert.equal(expiredStatus.lastSample.latencyMs, 30);
 });
 
 test('corregge gradualmente offset positivi e negativi senza salti nel clock', async (t) => {
   const wallClockBase = Date.now();
   let monotonicMs = 0;
-  const durations = [20, 30, 40, 50, 60, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5];
+  const durations = [
+    20, 19, 18, 17, 16, 15, 14, 13, 12, 11,
+    10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+    0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05,
+  ];
   let requestIndex = 0;
   t.mock.method(performance, 'now', () => monotonicMs);
   t.mock.method(Date, 'now', () => wallClockBase + monotonicMs);
@@ -100,7 +108,7 @@ test('corregge gradualmente offset positivi e negativi senza salti nel clock', a
     const durationMs = durations[requestIndex];
     requestIndex += 1;
     monotonicMs += durationMs;
-    const batchIndex = Math.floor((requestIndex - 1) / 5);
+    const batchIndex = Math.floor((requestIndex - 1) / 10);
     const providerOffsetMs = batchIndex === 1 ? 100 : 0;
     const serverTime = wallClockBase + (requestStart + monotonicMs) / 2 + providerOffsetMs;
     return response({ utc: new Date(serverTime).toISOString() });
@@ -132,6 +140,25 @@ test('corregge gradualmente offset positivi e negativi senza salti nel clock', a
   const halfwayAfterNegativeCorrection = clock.now();
   assert.ok(halfwayAfterNegativeCorrection > afterNegativeCorrection);
   assert.ok(Math.abs(halfwayAfterNegativeCorrection - afterNegativeCorrection - 9950) < 2);
+});
+
+test('usa dieci campioni sia alla prima sincronizzazione sia al reset manuale', async (t) => {
+  let requests = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests += 1;
+    return response({ utc: new Date().toISOString() });
+  });
+  const clock = createClock({
+    sources: [source('Primario', 'https://primary.example/time')],
+  });
+
+  const initialStatus = await clock.synchronize();
+  assert.equal(requests, 10);
+  assert.equal(initialStatus.lastSample.sampleCount, 10);
+
+  const resetStatus = await clock.reset();
+  assert.equal(requests, 20);
+  assert.equal(resetStatus.lastSample.sampleCount, 10);
 });
 
 test('usa il provider successivo quando il primario fallisce', async (t) => {
@@ -265,5 +292,5 @@ test('azzera subito la correzione dell’orologio e usa solo campioni nuovi', as
   const status = await clock.reset();
 
   assert.ok(clock.now() - timeBeforeReset > 40_000);
-  assert.equal(status.lastSample.sampleCount, 5);
+  assert.equal(status.lastSample.sampleCount, 10);
 });
