@@ -45,6 +45,8 @@ let tuningRequestId = 0;
 let config = null;
 let stationLoadId = 0;
 let playbackCycleIndex = null;
+let playbackSyncTimer = null;
+let preloadedTrackUrl = null;
 let observedTrackStart = null;
 let hasObservedSchedulePosition = false;
 let playbackOffsetMs = loadPlaybackOffset();
@@ -143,7 +145,6 @@ async function start() {
   window.setInterval(() => {
     render();
   }, 1000);
-  window.setInterval(syncPlayback, config.playbackSyncIntervalMs);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       const clockRefresh = config.resyncOnTrackChangeOnly ? Promise.resolve() : clock.synchronize();
@@ -196,6 +197,7 @@ async function loadStation(station) {
   playbackCycleIndex = null;
   observedTrackStart = null;
   hasObservedSchedulePosition = false;
+  preloadedTrackUrl = null;
   player.pause();
   playerError = '';
   elements['station-select'].value = station.id;
@@ -386,7 +388,10 @@ function syncPlayback() {
 
   const nextTrack = manifest.tracks[position.index + 1]
     || (manifest.repeat ? manifest.tracks[0] : null);
-  if (nextTrack && position.endsAt - (timestamp + playbackOffsetMs + audioOutputLatency.getCompensationMs()) <= TRACK_PRELOAD_LOOKAHEAD_MS) {
+  if (nextTrack
+    && nextTrack.audioUrl !== preloadedTrackUrl
+    && position.endsAt - (timestamp + playbackOffsetMs + audioOutputLatency.getCompensationMs()) <= TRACK_PRELOAD_LOOKAHEAD_MS) {
+    preloadedTrackUrl = nextTrack.audioUrl;
     player.preload(nextTrack);
   }
 }
@@ -416,6 +421,7 @@ async function toggleTuning() {
   playerError = '';
   renderPlayerError();
   tunedIn = true;
+  startPlaybackSync();
   tuningPending = true;
   const requestId = ++tuningRequestId;
   renderPlayerState();
@@ -452,7 +458,20 @@ function cancelTuning() {
   tuningRequestId += 1;
   tuningPending = false;
   tunedIn = false;
+  stopPlaybackSync();
+  preloadedTrackUrl = null;
   playbackSyncDiagnostics.reset();
+}
+
+function startPlaybackSync() {
+  if (playbackSyncTimer !== null) return;
+  playbackSyncTimer = window.setInterval(syncPlayback, config.playbackSyncIntervalMs);
+}
+
+function stopPlaybackSync() {
+  if (playbackSyncTimer === null) return;
+  window.clearInterval(playbackSyncTimer);
+  playbackSyncTimer = null;
 }
 
 async function realignPlayback() {
