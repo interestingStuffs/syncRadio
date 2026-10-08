@@ -84,6 +84,7 @@ async function start() {
   });
   audioOutputLatency = createAudioOutputLatencyMonitor({
     maxCompensationMs: config.maxOutputLatencyCompensationMs,
+    compensationEnabled: config.enableOutputLatencyCompensation,
   });
   player.setVolume(Number(elements['volume-slider'].value));
   renderVolumeState();

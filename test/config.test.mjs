@@ -57,6 +57,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     requestTimeoutMs: 8000,
     maxOutputLatencyCompensationMs: 100,
     outputLatencyRefreshIntervalMs: 30000,
+    enableOutputLatencyCompensation: true,
     playbackSyncIntervalMs: 50,
     localFallback: true,
     useManifestDurations: false,
@@ -95,11 +96,18 @@ test('carica i limiti configurati per la misura della latenza audio', async (t) 
     stations: [station],
     maxOutputLatencyCompensationMs: 75,
     outputLatencyRefreshIntervalMs: 60000,
+    enableOutputLatencyCompensation: false,
   }));
 
   const config = await loadConfig();
   assert.equal(config.maxOutputLatencyCompensationMs, 75);
   assert.equal(config.outputLatencyRefreshIntervalMs, 60000);
+  assert.equal(config.enableOutputLatencyCompensation, false);
+});
+
+test('rifiuta un valore non booleano per enableOutputLatencyCompensation', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], enableOutputLatencyCompensation: 'false' }));
+  await assert.rejects(loadConfig(), /enableOutputLatencyCompensation.*true o false/);
 });
 
 test('rifiuta limiti non validi per la latenza audio', async (t) => {

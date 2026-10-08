@@ -56,6 +56,10 @@ export async function loadConfig() {
   if (config.showPlaybackCalibration !== undefined && typeof config.showPlaybackCalibration !== 'boolean') {
     throw new Error('Il valore "showPlaybackCalibration" in config.json deve essere true o false.');
   }
+  if (config.enableOutputLatencyCompensation !== undefined
+    && typeof config.enableOutputLatencyCompensation !== 'boolean') {
+    throw new Error('Il valore "enableOutputLatencyCompensation" in config.json deve essere true o false.');
+  }
   const maxOutputLatencyCompensationMs = boundedNumber(
     config.maxOutputLatencyCompensationMs,
     DEFAULT_MAX_OUTPUT_LATENCY_COMPENSATION_MS,
@@ -91,6 +95,7 @@ export async function loadConfig() {
     requestTimeoutMs: positiveNumber(config.requestTimeoutMs, DEFAULT_TIMEOUT_MS),
     maxOutputLatencyCompensationMs,
     outputLatencyRefreshIntervalMs,
+    enableOutputLatencyCompensation: config.enableOutputLatencyCompensation !== false,
     playbackSyncIntervalMs,
     localFallback: config.localFallback !== false,
   };

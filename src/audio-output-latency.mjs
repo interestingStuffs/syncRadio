@@ -3,9 +3,13 @@ export const MAX_TRUSTWORTHY_OUTPUT_LATENCY_MS = 100;
 export function createAudioOutputLatencyMonitor({
   AudioContextConstructor = globalThis.AudioContext,
   maxCompensationMs = MAX_TRUSTWORTHY_OUTPUT_LATENCY_MS,
+  compensationEnabled = true,
 } = {}) {
   if (!Number.isFinite(maxCompensationMs) || maxCompensationMs < 0) {
     throw new RangeError('maxCompensationMs deve essere un numero finito non negativo.');
+  }
+  if (typeof compensationEnabled !== 'boolean') {
+    throw new TypeError('compensationEnabled deve essere true o false.');
   }
 
   let context = null;
@@ -51,6 +55,14 @@ export function createAudioOutputLatencyMonitor({
             latencyMs: null,
             compensationMs: 0,
             message: 'Il browser non espone una misura valida della latenza di uscita.',
+          });
+        } else if (!compensationEnabled) {
+          const latencyMs = Math.round(outputLatencyMs);
+          recordMeasurement({
+            status: 'measured',
+            latencyMs,
+            compensationMs: 0,
+            message: `Latenza di uscita stimata: ${latencyMs} ms; compensazione disattivata dalla configurazione.`,
           });
         } else if (outputLatencyMs > maxCompensationMs) {
           recordMeasurement({
@@ -110,9 +122,7 @@ export function createAudioOutputLatencyMonitor({
       ...state,
       compensationMs,
       pendingCompensationMs: null,
-      message: state.status === 'measured'
-        ? `Latenza di uscita stimata: ${state.latencyMs} ms; compensazione applicata.`
-        : `${candidateMessage} Compensazione attiva: ${compensationMs} ms.`,
+      message: `${candidateMessage} Compensazione attiva: ${compensationMs} ms.`,
     };
     return getState();
   }

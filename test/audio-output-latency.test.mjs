@@ -88,6 +88,22 @@ test('usa il limite massimo configurato per accettare o ignorare la misura', asy
   assert.equal(monitor.applyMeasurement().compensationMs, 75);
 });
 
+test('misura la latenza senza applicare compensazione quando disattivata', async () => {
+  const monitor = createAudioOutputLatencyMonitor({
+    AudioContextConstructor: makeContext({ outputLatency: 0.075 }),
+    compensationEnabled: false,
+  });
+
+  const state = await monitor.measure();
+
+  assert.equal(state.status, 'measured');
+  assert.equal(state.latencyMs, 75);
+  assert.equal(state.compensationMs, 0);
+  assert.equal(state.pendingCompensationMs, 0);
+  assert.match(state.message, /compensazione disattivata/);
+  assert.equal(monitor.applyMeasurement().compensationMs, 0);
+});
+
 test('espone il mancato supporto senza interrompere la riproduzione', async () => {
   const monitor = createAudioOutputLatencyMonitor({ AudioContextConstructor: null });
 
