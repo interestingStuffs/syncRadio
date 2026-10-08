@@ -2,7 +2,7 @@
   "allowStationSwitch": true,
   "stationQueryParam": "station",
   "useManifestDurations": true,
-  "showPlaybackCalibration": true,
+  "showPlaybackCalibration": false,
   "customTimeSource": {
     "name": "SyncRadio · UTC",
     "url": "",
