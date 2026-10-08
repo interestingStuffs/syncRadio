@@ -62,6 +62,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     localFallback: true,
     useManifestDurations: false,
     showPlaybackCalibration: true,
+    showPlaybackOffsetControls: true,
   });
 });
 
@@ -351,6 +352,14 @@ test('configura la visibilità della calibrazione guidata', async (t) => {
 
   mockConfig(t, jsonResponse({ stations: [station], showPlaybackCalibration: 'false' }));
   await assert.rejects(loadConfig(), /showPlaybackCalibration.*true o false/);
+});
+
+test('configura la visibilità dei comandi di offset manuale', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], showPlaybackOffsetControls: false }));
+  assert.equal((await loadConfig()).showPlaybackOffsetControls, false);
+
+  mockConfig(t, jsonResponse({ stations: [station], showPlaybackOffsetControls: 'false' }));
+  await assert.rejects(loadConfig(), /showPlaybackOffsetControls.*true o false/);
 });
 
 test('valida e normalizza la ripetizione per stazione', async (t) => {

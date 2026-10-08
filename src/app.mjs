@@ -22,7 +22,7 @@ const elements = Object.fromEntries([
   'track-time', 'track-title', 'track-artist',
   'progress-fill', 'elapsed-time', 'remaining-time', 'tune-button',
   'sync-reset-button', 'sync-reset-status', 'button-icon', 'button-label',
-  'offset-decrease', 'offset-increase', 'offset-reset', 'playback-offset',
+  'playback-offset-controls', 'offset-decrease', 'offset-increase', 'offset-reset', 'playback-offset',
   'offset-calibration', 'calibration-cue', 'calibration-flash', 'calibration-toggle',
   'calibration-earlier', 'calibration-later', 'calibration-status',
   'volume-slider', 'volume-toggle', 'player-error', 'configuration-error', 'sync-status', 'sync-icon', 'sync-message',
@@ -64,6 +64,7 @@ async function start() {
     showConfigurationError(error.message);
     return;
   }
+  elements['playback-offset-controls'].hidden = !config.showPlaybackOffsetControls;
   elements['offset-calibration'].hidden = !config.showPlaybackCalibration;
 
   clock = createClock({

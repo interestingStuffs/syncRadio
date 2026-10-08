@@ -56,6 +56,9 @@ export async function loadConfig() {
   if (config.showPlaybackCalibration !== undefined && typeof config.showPlaybackCalibration !== 'boolean') {
     throw new Error('Il valore "showPlaybackCalibration" in config.json deve essere true o false.');
   }
+  if (config.showPlaybackOffsetControls !== undefined && typeof config.showPlaybackOffsetControls !== 'boolean') {
+    throw new Error('Il valore "showPlaybackOffsetControls" in config.json deve essere true o false.');
+  }
   if (config.enableOutputLatencyCompensation !== undefined
     && typeof config.enableOutputLatencyCompensation !== 'boolean') {
     throw new Error('Il valore "enableOutputLatencyCompensation" in config.json deve essere true o false.');
@@ -88,6 +91,7 @@ export async function loadConfig() {
     stationQueryParam,
     useManifestDurations: config.useManifestDurations === true,
     showPlaybackCalibration: config.showPlaybackCalibration !== false,
+    showPlaybackOffsetControls: config.showPlaybackOffsetControls !== false,
     timeSources,
     customTimeSourceOnly,
     resyncOnTrackChangeOnly: config.resyncOnTrackChangeOnly === true,
