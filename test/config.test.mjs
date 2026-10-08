@@ -45,6 +45,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     allowStationSwitch: true,
     stationQueryParam: null,
     customTimeSourceOnly: false,
+    resyncOnTrackChangeOnly: false,
     timeSources: [{
       name: 'Orologio',
       url: 'https://time.example/api',
@@ -76,6 +77,7 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
   assert.deepEqual(config.stations, [station]);
   assert.equal(config.allowStationSwitch, false);
   assert.equal(config.customTimeSourceOnly, false);
+  assert.equal(config.resyncOnTrackChangeOnly, false);
   assert.equal(config.resyncIntervalMs, 15000);
   assert.equal(config.requestTimeoutMs, 2500);
   assert.equal(config.maxOutputLatencyCompensationMs, 100);
@@ -106,6 +108,24 @@ test('rifiuta limiti non validi per la latenza audio', async (t) => {
 
   mockConfig(t, jsonResponse({ stations: [station], outputLatencyRefreshIntervalMs: 500 }));
   await assert.rejects(loadConfig(), /outputLatencyRefreshIntervalMs.*tra 1000 e/);
+});
+
+test('abilita la risincronizzazione solo al cambio traccia', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    resyncOnTrackChangeOnly: true,
+    resyncIntervalMs: 12000,
+  }));
+
+  const config = await loadConfig();
+
+  assert.equal(config.resyncOnTrackChangeOnly, true);
+  assert.equal(config.resyncIntervalMs, 12000);
+});
+
+test('rifiuta un valore non booleano per resyncOnTrackChangeOnly', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], resyncOnTrackChangeOnly: 'yes' }));
+  await assert.rejects(loadConfig(), /resyncOnTrackChangeOnly.*true o false/);
 });
 
 test('disattiva il servizio orario proprietario finché l’URL è vuoto', async (t) => {

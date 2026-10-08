@@ -35,6 +35,9 @@ export async function loadConfig() {
   if (config.localFallback !== undefined && typeof config.localFallback !== 'boolean') {
     throw new Error('Il valore "localFallback" in config.json deve essere true o false.');
   }
+  if (config.resyncOnTrackChangeOnly !== undefined && typeof config.resyncOnTrackChangeOnly !== 'boolean') {
+    throw new Error('Il valore "resyncOnTrackChangeOnly" in config.json deve essere true o false.');
+  }
   if (config.allowStationSwitch !== undefined && typeof config.allowStationSwitch !== 'boolean') {
     throw new Error('Il valore "allowStationSwitch" in config.json deve essere true o false.');
   }
@@ -73,6 +76,7 @@ export async function loadConfig() {
     showPlaybackCalibration: config.showPlaybackCalibration !== false,
     timeSources,
     customTimeSourceOnly,
+    resyncOnTrackChangeOnly: config.resyncOnTrackChangeOnly === true,
     resyncIntervalMs: positiveNumber(config.resyncIntervalMs, 30000),
     requestTimeoutMs: positiveNumber(config.requestTimeoutMs, DEFAULT_TIMEOUT_MS),
     maxOutputLatencyCompensationMs,

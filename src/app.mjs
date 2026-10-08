@@ -40,6 +40,8 @@ let tunedIn = false;
 let config = null;
 let stationLoadId = 0;
 let playbackCycleIndex = null;
+let observedTrackStart = null;
+let hasObservedSchedulePosition = false;
 let playbackOffsetMs = loadPlaybackOffset();
 let synchronizationResetPending = false;
 let audioOutputLatencyMonitoringStarted = false;
@@ -139,16 +141,19 @@ async function start() {
   window.setInterval(syncPlayback, 50);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      clock.synchronize().then(renderClockStatus, renderClockStatus).then(() => {
+      const clockRefresh = config.resyncOnTrackChangeOnly ? Promise.resolve() : clock.synchronize();
+      clockRefresh.then(renderClockStatus, renderClockStatus).then(() => {
         if (audioOutputLatencyMonitoringStarted) void refreshAudioOutputLatency();
         syncPlayback();
         render();
       });
     }
   });
-  window.setInterval(() => {
-    clock.synchronize().then(renderClockStatus).catch(renderClockStatus);
-  }, config.resyncIntervalMs);
+  if (!config.resyncOnTrackChangeOnly) {
+    window.setInterval(() => {
+      clock.synchronize().then(renderClockStatus).catch(renderClockStatus);
+    }, config.resyncIntervalMs);
+  }
 }
 
 function renderStationOptions() {
@@ -184,6 +189,8 @@ async function loadStation(station) {
   manifest = null;
   tunedIn = false;
   playbackCycleIndex = null;
+  observedTrackStart = null;
+  hasObservedSchedulePosition = false;
   player.pause();
   playerError = '';
   elements['station-select'].value = station.id;
@@ -296,6 +303,7 @@ function render() {
 
   elements['tune-button'].disabled = false;
   const position = locatePlaybackPosition(timestamp);
+  observeScheduledTrack(position);
   const entries = elements['schedule-list'].children;
   for (let index = 0; index < entries.length; index += 1) {
     entries[index].classList.toggle('is-current', index === position.index);
@@ -327,6 +335,17 @@ function render() {
   elements['progress-fill'].style.width = `${Math.min(100, (position.offsetMs / position.track.durationMs) * 100)}%`;
   elements['on-air-indicator'].lastChild.textContent = tunedIn ? ' IN ASCOLTO' : ' PROGRAMMAZIONE';
   elements['on-air-indicator'].classList.toggle('is-playing', tunedIn);
+}
+
+function observeScheduledTrack(position) {
+  if (!config.resyncOnTrackChangeOnly) return;
+
+  const trackStart = position.track ? position.startsAt : null;
+  if (hasObservedSchedulePosition && trackStart !== null && trackStart !== observedTrackStart) {
+    clock.synchronize().then(renderClockStatus, renderClockStatus);
+  }
+  observedTrackStart = trackStart;
+  hasObservedSchedulePosition = true;
 }
 
 function syncPlayback() {

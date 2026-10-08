@@ -58,6 +58,7 @@
       "timeZonePath": ""
     }
   ],
+  "resyncOnTrackChangeOnly": true,
   "resyncIntervalMs": 15000,
   "requestTimeoutMs": 5000,
   "maxOutputLatencyCompensationMs": 100,
