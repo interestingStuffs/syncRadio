@@ -19,6 +19,7 @@ export function createAudioPlayer({
   let playbackPending = null;
   let playbackGeneration = 0;
   let activeSource = null;
+  let scheduledSource = null;
   let calibrationSource = null;
   let calibrationBuffer = null;
   let calibrationGeneration = 0;
@@ -78,16 +79,56 @@ export function createAudioPlayer({
   }
 
   function stopActiveSource(when = context?.currentTime, notify = true) {
-    if (!activeSource) return;
-    const source = activeSource;
+    const sources = [activeSource, scheduledSource].filter(Boolean);
     activeSource = null;
-    source.stopScheduled = true;
-    source.node.stop(when);
-    if (notify) onStateChange(false);
+    scheduledSource = null;
+    for (const source of sources) {
+      source.stopScheduled = true;
+      source.node.stop(when);
+    }
+    if (sources.length && notify) onStateChange(false);
   }
 
   function playbackPosition(source, contextTime = context.currentTime) {
     return source.offsetSeconds + Math.max(0, contextTime - source.startTime);
+  }
+
+  function promoteScheduledSource() {
+    if (!scheduledSource || context.currentTime < scheduledSource.startTime) return false;
+    activeSource = scheduledSource;
+    scheduledSource = null;
+    selectedTrack = activeSource.track;
+    selectedTrackKey = activeSource.trackKey;
+    keepBuffers(new Set([selectedTrack.audioUrl]));
+    onStateChange(true);
+    return true;
+  }
+
+  function createTrackSource(track, buffer, offsetSeconds, startTime) {
+    const audioContext = getContext();
+    const sourceNode = audioContext.createBufferSource();
+    sourceNode.buffer = buffer;
+    sourceNode.connect(gainNode);
+    const source = {
+      node: sourceNode,
+      track,
+      trackKey: `${track.id}\n${track.audioUrl}`,
+      startTime,
+      offsetSeconds,
+      stopScheduled: false,
+    };
+    sourceNode.onended = () => {
+      if (scheduledSource === source) {
+        scheduledSource = null;
+        return;
+      }
+      if (activeSource !== source) return;
+      if (promoteScheduledSource()) return;
+      activeSource = null;
+      onStateChange(false);
+    };
+    sourceNode.start(startTime, offsetSeconds);
+    return source;
   }
 
   function stopCalibrationTone() {
@@ -139,22 +180,7 @@ export function createAudioPlayer({
     const startOffset = Math.max(0, offsetMs + elapsedMs + SCHEDULE_LEAD_SECONDS * 1000) / 1000;
     const maxOffset = Math.max(0, buffer.duration - 0.001);
     const offsetSeconds = Math.min(startOffset, maxOffset);
-    const sourceNode = audioContext.createBufferSource();
-    sourceNode.buffer = buffer;
-    sourceNode.connect(gainNode);
-    const source = {
-      node: sourceNode,
-      startTime: when,
-      offsetSeconds,
-      stopScheduled: false,
-    };
-    sourceNode.onended = () => {
-      if (activeSource !== source) return;
-      activeSource = null;
-      onStateChange(false);
-    };
-
-    sourceNode.start(when, offsetSeconds);
+    const source = createTrackSource(track, buffer, offsetSeconds, when);
     const previousSource = activeSource;
     activeSource = source;
     if (previousSource && !previousSource.stopScheduled) {
@@ -164,8 +190,56 @@ export function createAudioPlayer({
     onStateChange(true);
   }
 
-  async function startTrack(track, offsetMs, force) {
+  async function scheduleNextTrack(track, offsetMs, delayMs) {
+    if (!track) return;
+    if (!Number.isFinite(delayMs)) throw new TypeError('delayMs deve essere un numero finito.');
+    if (!activeSource && playbackPending) await playbackPending;
+    if (!playbackRequested || !activeSource) return;
     const trackKey = `${track.id}\n${track.audioUrl}`;
+    if (scheduledSource?.trackKey === trackKey) return;
+    const generationKey = playbackGeneration;
+    const requestedAt = monotonicNow();
+    const bufferPromise = loadTrack(track);
+    keepBuffers(new Set([selectedTrack?.audioUrl, track.audioUrl].filter(Boolean)));
+    const buffer = await bufferPromise;
+    if (!playbackRequested || playbackGeneration !== generationKey) return;
+
+    const audioContext = getContext();
+    if (audioContext.state !== 'running') await audioContext.resume();
+    if (!playbackRequested || playbackGeneration !== generationKey) return;
+    if (scheduledSource?.trackKey === trackKey) return;
+    if (scheduledSource) stopScheduledSource();
+
+    const elapsedMs = Math.max(0, monotonicNow() - requestedAt);
+    const remainingDelayMs = delayMs - elapsedMs;
+    const schedulingLeadMs = Math.max(SCHEDULE_LEAD_SECONDS * 1000, remainingDelayMs);
+    const lateMs = Math.max(0, SCHEDULE_LEAD_SECONDS * 1000 - remainingDelayMs);
+    const offsetSeconds = Math.min(
+      Math.max(0, offsetMs + lateMs) / 1000,
+      Math.max(0, buffer.duration - 0.001),
+    );
+    const when = audioContext.currentTime + schedulingLeadMs / 1000;
+    const source = createTrackSource(track, buffer, offsetSeconds, when);
+    scheduledSource = source;
+    if (activeSource && !activeSource.stopScheduled) {
+      activeSource.stopScheduled = true;
+      activeSource.node.stop(when);
+    }
+  }
+
+  function stopScheduledSource() {
+    if (!scheduledSource) return;
+    const source = scheduledSource;
+    scheduledSource = null;
+    source.stopScheduled = true;
+    source.node.stop(context.currentTime);
+  }
+
+  async function startTrack(track, offsetMs, force) {
+    const promotedScheduledSource = promoteScheduledSource();
+    const trackKey = `${track.id}\n${track.audioUrl}`;
+    if (!force && promotedScheduledSource && selectedTrackKey === trackKey) return;
+    if (!force && scheduledSource?.trackKey === trackKey && context.state === 'running') return;
     const isNewTrack = selectedTrackKey !== trackKey;
     if (!force && !isNewTrack && playbackPending) return playbackPending;
 
@@ -183,6 +257,7 @@ export function createAudioPlayer({
     }
 
     playbackGeneration += 1;
+    stopScheduledSource();
     selectedTrack = track;
     selectedTrackKey = trackKey;
     requestedOffsetMs = Math.max(0, offsetMs);
@@ -252,6 +327,7 @@ export function createAudioPlayer({
     },
     scheduleCalibrationTone,
     stopCalibrationTone,
+    scheduleNextTrack,
     pause,
     sync(track, offsetMs, force = false) {
       requestTrack(track, offsetMs, force);
@@ -275,6 +351,9 @@ export function createAudioPlayer({
       if (gainNode) gainNode.gain.value = muted ? 0 : volume;
     },
     isMuted() { return muted || volume === 0; },
-    isPlaying() { return activeSource !== null; },
+    isPlaying() {
+      promoteScheduledSource();
+      return activeSource !== null;
+    },
   };
 }

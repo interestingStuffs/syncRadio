@@ -44,9 +44,9 @@ let tuningPending = false;
 let tuningRequestId = 0;
 let config = null;
 let stationLoadId = 0;
-let playbackCycleIndex = null;
 let playbackSyncTimer = null;
-let preloadedTrackUrl = null;
+let playbackSyncPositionKey = null;
+let preloadedTrackKey = null;
 let observedTrackStart = null;
 let hasObservedSchedulePosition = false;
 let playbackOffsetMs = loadPlaybackOffset();
@@ -72,7 +72,10 @@ async function start() {
     localFallback: config.localFallback,
   });
   player = createAudioPlayer({
-    onSyncMeasurement: playbackSyncDiagnostics.recordDrift,
+    onSyncMeasurement: (measurement) => {
+      playbackSyncDiagnostics.recordDrift(measurement);
+      if (measurement.corrected) preloadedTrackKey = null;
+    },
     onError: (message) => {
       playerError = message;
       if (tunedIn) {
@@ -194,10 +197,10 @@ async function loadStation(station) {
   const loadId = ++stationLoadId;
   manifest = null;
   cancelTuning();
-  playbackCycleIndex = null;
+  playbackSyncPositionKey = null;
   observedTrackStart = null;
   hasObservedSchedulePosition = false;
-  preloadedTrackUrl = null;
+  preloadedTrackKey = null;
   player.pause();
   playerError = '';
   elements['station-select'].value = station.id;
@@ -381,18 +384,31 @@ function syncPlayback() {
     render();
     return;
   }
-  const cycleChanged = playbackCycleIndex !== null && playbackCycleIndex !== position.cycleIndex;
-  playbackCycleIndex = position.cycleIndex;
+  const syncPositionKey = `${position.startsAt}\n${position.track.id}\n${position.track.audioUrl}`;
+  if (syncPositionKey !== playbackSyncPositionKey) {
+    playbackSyncPositionKey = syncPositionKey;
+    preloadedTrackKey = null;
+  }
   playbackSyncDiagnostics.recordCheck();
-  player.sync(position.track, getPlayerOffset(position.offsetMs), cycleChanged);
+  player.sync(position.track, getPlayerOffset(position.offsetMs));
 
   const nextTrack = manifest.tracks[position.index + 1]
     || (manifest.repeat ? manifest.tracks[0] : null);
+  const nextTrackKey = nextTrack ? `${position.endsAt}\n${nextTrack.id}\n${nextTrack.audioUrl}` : null;
   if (nextTrack
-    && nextTrack.audioUrl !== preloadedTrackUrl
+    && player.isPlaying()
+    && nextTrackKey !== preloadedTrackKey
     && position.endsAt - (timestamp + playbackOffsetMs + audioOutputLatency.getCompensationMs()) <= TRACK_PRELOAD_LOOKAHEAD_MS) {
-    preloadedTrackUrl = nextTrack.audioUrl;
-    player.preload(nextTrack);
+    preloadedTrackKey = nextTrackKey;
+    const untilNextTrackMs = position.endsAt - (timestamp + playbackOffsetMs);
+    void player.scheduleNextTrack(
+      nextTrack,
+      audioOutputLatency.getCompensationMs(),
+      untilNextTrackMs,
+    ).catch((error) => {
+      playerError = `Precaricamento della traccia successiva non riuscito: ${error.message}`;
+      renderPlayerError();
+    });
   }
 }
 
@@ -425,7 +441,6 @@ async function toggleTuning() {
   tuningPending = true;
   const requestId = ++tuningRequestId;
   renderPlayerState();
-  playbackCycleIndex = position.cycleIndex;
   const previousCompensationMs = audioOutputLatency.getCompensationMs();
   const latencyMeasurement = audioOutputLatency.measure();
   try {
@@ -459,7 +474,8 @@ function cancelTuning() {
   tuningPending = false;
   tunedIn = false;
   stopPlaybackSync();
-  preloadedTrackUrl = null;
+  playbackSyncPositionKey = null;
+  preloadedTrackKey = null;
   playbackSyncDiagnostics.reset();
 }
 
@@ -492,7 +508,8 @@ async function realignPlayback() {
 
   playerError = '';
   renderPlayerError();
-  playbackCycleIndex = position.cycleIndex;
+  playbackSyncPositionKey = null;
+  preloadedTrackKey = null;
   try {
     await player.realign(position.track, getPlayerOffset(position.offsetMs));
   } catch (error) {

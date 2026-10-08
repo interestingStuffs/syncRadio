@@ -129,6 +129,77 @@ test('precarica e riutilizza il buffer decodificato al cambio traccia', async ()
   assert.equal(setup.player.isPlaying(), true);
 });
 
+test('programma in anticipo la traccia successiva e la promuove senza un nuovo avvio', async () => {
+  const setup = makePlayer();
+  const currentTrack = track('one');
+  const nextTrack = track('two');
+  await setup.player.tune(currentTrack, 1000);
+
+  await setup.player.scheduleNextTrack(nextTrack, 24, 2000);
+  const { context } = setup;
+  assert.equal(context.sources.length, 2);
+  assert.equal(context.sources[1].started.when, 12);
+  assert.equal(context.sources[1].started.offset, 0.024);
+  assert.equal(context.sources[0].stoppedAt, 12);
+
+  context.currentTime = 12;
+  setup.now(2000);
+  setup.player.sync(nextTrack, 24);
+
+  assert.equal(context.sources.length, 2);
+  assert.equal(setup.player.isPlaying(), true);
+});
+
+test('programma una nuova istanza quando la playlist ripete la stessa traccia', async () => {
+  const setup = makePlayer();
+  const repeatedTrack = track('one');
+  await setup.player.tune(repeatedTrack, 0);
+  await setup.player.scheduleNextTrack(repeatedTrack, 0, 1000);
+  const { context } = setup;
+
+  assert.equal(context.sources.length, 2);
+  assert.equal(context.sources[0].stoppedAt, 11);
+  assert.equal(context.sources[1].started.when, 11);
+
+  context.currentTime = 11;
+  setup.player.sync(repeatedTrack, 20);
+
+  assert.equal(context.sources.length, 2);
+  assert.equal(setup.player.isPlaying(), true);
+});
+
+test('cancella la traccia successiva già programmata quando si mette in pausa', async () => {
+  const setup = makePlayer();
+  await setup.player.tune(track('one'), 0);
+  await setup.player.scheduleNextTrack(track('two'), 0, 2000);
+  const { context } = setup;
+
+  setup.player.pause();
+
+  assert.equal(context.sources[0].stoppedAt, context.currentTime);
+  assert.equal(context.sources[1].stoppedAt, context.currentTime);
+  assert.equal(setup.player.isPlaying(), false);
+});
+
+test('si riallinea alla timeline quando il contesto è sospeso al ritorno in primo piano', async () => {
+  const setup = makePlayer();
+  const currentTrack = track('one');
+  const nextTrack = track('two');
+  await setup.player.tune(currentTrack, 0);
+  await setup.player.scheduleNextTrack(nextTrack, 0, 2000);
+  const { context } = setup;
+  context.state = 'suspended';
+  context.currentTime = 11;
+
+  setup.player.sync(nextTrack, 1100);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(context.sources.length, 3);
+  assert.equal(context.sources[1].stoppedAt, context.currentTime);
+  assert.equal(context.sources[2].started.offset, 1.12);
+  assert.equal(context.state, 'running');
+});
+
 test('riusa la traccia selezionata quando la posizione segue la timeline', async () => {
   const setup = makePlayer();
   await setup.player.tune(track(), 1000);
