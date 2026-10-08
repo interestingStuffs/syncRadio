@@ -338,11 +338,18 @@ function render() {
 }
 
 function observeScheduledTrack(position) {
-  if (!config.resyncOnTrackChangeOnly) return;
-
   const trackStart = position.track ? position.startsAt : null;
-  if (hasObservedSchedulePosition && trackStart !== null && trackStart !== observedTrackStart) {
-    clock.synchronize().then(renderClockStatus, renderClockStatus);
+  const trackChanged = hasObservedSchedulePosition
+    && trackStart !== null
+    && trackStart !== observedTrackStart;
+  if (trackChanged) {
+    if (audioOutputLatency.getState().pendingCompensationMs !== null) {
+      audioOutputLatency.applyMeasurement();
+      renderAudioOutputLatency();
+    }
+    if (config.resyncOnTrackChangeOnly) {
+      clock.synchronize().then(renderClockStatus, renderClockStatus);
+    }
   }
   observedTrackStart = trackStart;
   hasObservedSchedulePosition = true;
@@ -359,6 +366,7 @@ function syncPlayback() {
   }
 
   const position = locatePlaybackPosition(timestamp);
+  observeScheduledTrack(position);
   if (!position.track) {
     tunedIn = false;
     player.pause();
