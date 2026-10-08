@@ -268,6 +268,7 @@ main { padding-top: 52px; }
 .volume-control input { width: 104px; height: 4px; accent-color: var(--accent); cursor: pointer; }
 
 .playback-offset { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: var(--muted); }
+.playback-offset[hidden] { display: none; }
 .offset-label { margin-right: 4px; font: 10px var(--mono); }
 .playback-offset output { min-width: 66px; color: var(--ink); font: 12px var(--mono); font-variant-numeric: tabular-nums; text-align: center; }
 .offset-button, .offset-reset { display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink); cursor: pointer; }
