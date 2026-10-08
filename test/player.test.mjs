@@ -33,6 +33,7 @@ class FakeAudioContext {
     this.options = options;
     this.state = 'running';
     this.currentTime = 10;
+    this.sampleRate = 48_000;
     this.destination = {};
     this.sources = [];
     this.decoded = 0;
@@ -40,13 +41,24 @@ class FakeAudioContext {
   }
 
   createGain() {
-    return { gain: { value: 1 }, connect(destination) { this.destination = destination; } };
+    const gainNode = { gain: { value: 1 }, connect(destination) { this.destination = destination; } };
+    this.gainNode = gainNode;
+    return gainNode;
   }
 
   createBufferSource() {
     const source = new FakeBufferSource(this);
     this.sources.push(source);
     return source;
+  }
+
+  createBuffer(numberOfChannels, length, sampleRate) {
+    return {
+      numberOfChannels,
+      length,
+      sampleRate,
+      getChannelData: () => new Float32Array(length),
+    };
   }
 
   async decodeAudioData() {
@@ -283,6 +295,63 @@ test('mantiene volume e mute nel nodo gain dopo la creazione del contesto', asyn
   setup.player.toggleMute();
   assert.equal(setup.player.isMuted(), false);
   assert.equal(context.sources[0].destination.gain.value, 0.35);
+});
+
+test('programma il beep di calibrazione nello stesso percorso Web Audio e volume del player', async () => {
+  const setup = makePlayer();
+  setup.player.setVolume(0.35);
+
+  await setup.player.scheduleCalibrationTone(250);
+  const { context } = setup;
+  const tone = context.sources[0];
+
+  assert.equal(tone.started.when, 10.25);
+  assert.equal(tone.buffer.sampleRate, context.sampleRate);
+  assert.equal(tone.buffer.length, Math.floor(context.sampleRate * 0.08));
+  assert.equal(tone.destination, context.gainNode);
+  assert.equal(context.gainNode.gain.value, 0.35);
+});
+
+test('cancella un beep programmato quando si interrompe la calibrazione', async () => {
+  const setup = makePlayer();
+  await setup.player.scheduleCalibrationTone(250);
+  const { context } = setup;
+
+  setup.player.stopCalibrationTone();
+
+  assert.equal(context.sources[0].stoppedAt, context.currentTime);
+});
+
+test('non programma un beep obsoleto se la calibrazione viene fermata durante resume', async () => {
+  let resolveResume;
+  const setup = makePlayer({
+    AudioContextConstructor: class SuspendedAudioContext extends FakeAudioContext {
+      constructor(options) {
+        super(options);
+        this.state = 'suspended';
+        this.gainNode = null;
+      }
+
+      createGain() {
+        this.gainNode = super.createGain();
+        return this.gainNode;
+      }
+
+      resume() {
+        return new Promise((resolve) => { resolveResume = () => {
+          this.state = 'running';
+          resolve();
+        }; });
+      }
+    },
+  });
+
+  const toneRequest = setup.player.scheduleCalibrationTone(250);
+  setup.player.stopCalibrationTone();
+  resolveResume();
+  await toneRequest;
+
+  assert.equal(setup.context.sources.length, 0);
 });
 
 test('ferma la sorgente attiva quando la programmazione termina', async () => {

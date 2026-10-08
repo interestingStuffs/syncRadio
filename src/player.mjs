@@ -19,6 +19,9 @@ export function createAudioPlayer({
   let playbackPending = null;
   let playbackGeneration = 0;
   let activeSource = null;
+  let calibrationSource = null;
+  let calibrationBuffer = null;
+  let calibrationGeneration = 0;
   let volume = 1;
   let previousVolume = volume;
   let muted = false;
@@ -85,6 +88,48 @@ export function createAudioPlayer({
 
   function playbackPosition(source, contextTime = context.currentTime) {
     return source.offsetSeconds + Math.max(0, contextTime - source.startTime);
+  }
+
+  function stopCalibrationTone() {
+    calibrationGeneration += 1;
+    if (!calibrationSource) return;
+    const source = calibrationSource;
+    calibrationSource = null;
+    source.stop(context.currentTime);
+  }
+
+  async function scheduleCalibrationTone(delayMs) {
+    if (!Number.isFinite(delayMs) || delayMs < 0) {
+      throw new RangeError('delayMs deve essere un numero finito non negativo.');
+    }
+
+    stopCalibrationTone();
+    const generation = calibrationGeneration;
+    const requestedAt = monotonicNow();
+    const audioContext = getContext();
+    if (audioContext.state !== 'running') await audioContext.resume();
+    if (generation !== calibrationGeneration) return;
+
+    if (!calibrationBuffer) {
+      const sampleRate = audioContext.sampleRate;
+      const sampleCount = Math.floor(sampleRate * 0.08);
+      calibrationBuffer = audioContext.createBuffer(1, sampleCount, sampleRate);
+      const samples = calibrationBuffer.getChannelData(0);
+      for (let index = 0; index < sampleCount; index += 1) {
+        const envelope = Math.min(1, index / 150, (sampleCount - index) / 500);
+        samples[index] = Math.sin((2 * Math.PI * 660 * index) / sampleRate) * envelope * 0.55;
+      }
+    }
+
+    const sourceNode = audioContext.createBufferSource();
+    sourceNode.buffer = calibrationBuffer;
+    sourceNode.connect(gainNode);
+    sourceNode.onended = () => {
+      if (calibrationSource === sourceNode) calibrationSource = null;
+    };
+    const remainingDelayMs = Math.max(0, delayMs - (monotonicNow() - requestedAt));
+    sourceNode.start(audioContext.currentTime + remainingDelayMs / 1000);
+    calibrationSource = sourceNode;
   }
 
   function scheduleTrack(track, buffer, offsetMs, requestedAtMs, generationKey) {
@@ -205,6 +250,8 @@ export function createAudioPlayer({
       playbackRequested = true;
       return startTrack(track, offsetMs, true);
     },
+    scheduleCalibrationTone,
+    stopCalibrationTone,
     pause,
     sync(track, offsetMs, force = false) {
       requestTrack(track, offsetMs, force);
