@@ -4,6 +4,7 @@ import { loadStationManifest } from './data-source.mjs';
 import { resolveTrackDurations } from './audio-metadata.mjs';
 import { createAudioPlayer } from './player.mjs';
 import { createAudioOutputLatencyMonitor } from './audio-output-latency.mjs';
+import { createPlaybackSyncDiagnostics } from './playback-sync-diagnostics.mjs';
 import {
   loadPlaybackOffset,
   savePlaybackOffset,
@@ -28,13 +29,15 @@ const elements = Object.fromEntries([
   'schedule-count', 'schedule-list', 'schedule-footnote', 'on-air-indicator', 'manifest-status',
   'diagnostics-state', 'diagnostics-provider', 'diagnostics-utc', 'diagnostics-sample',
   'diagnostics-offset', 'diagnostics-uncertainty', 'diagnostics-latency', 'diagnostics-output-latency',
-  'diagnostics-attempts', 'diagnostics-detail',
+  'diagnostics-attempts', 'diagnostics-detail', 'diagnostics-playback-checks',
+  'diagnostics-playback-interval', 'diagnostics-playback-drift', 'diagnostics-playback-corrections',
 ].map((id) => [id, document.getElementById(id)]));
 
 let manifest = null;
 let clock = null;
 let player = null;
 let audioOutputLatency = null;
+const playbackSyncDiagnostics = createPlaybackSyncDiagnostics();
 let playerError = '';
 let tunedIn = false;
 let tuningPending = false;
@@ -67,6 +70,7 @@ async function start() {
     localFallback: config.localFallback,
   });
   player = createAudioPlayer({
+    onSyncMeasurement: playbackSyncDiagnostics.recordDrift,
     onError: (message) => {
       playerError = message;
       if (tunedIn) {
@@ -140,7 +144,7 @@ async function start() {
   window.setInterval(() => {
     render();
   }, 1000);
-  window.setInterval(syncPlayback, 50);
+  window.setInterval(syncPlayback, config.playbackSyncIntervalMs);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       const clockRefresh = config.resyncOnTrackChangeOnly ? Promise.resolve() : clock.synchronize();
@@ -378,6 +382,7 @@ function syncPlayback() {
   }
   const cycleChanged = playbackCycleIndex !== null && playbackCycleIndex !== position.cycleIndex;
   playbackCycleIndex = position.cycleIndex;
+  playbackSyncDiagnostics.recordCheck();
   player.sync(position.track, getPlayerOffset(position.offsetMs), cycleChanged);
 
   const nextTrack = manifest.tracks[position.index + 1]
@@ -448,6 +453,7 @@ function cancelTuning() {
   tuningRequestId += 1;
   tuningPending = false;
   tunedIn = false;
+  playbackSyncDiagnostics.reset();
 }
 
 async function realignPlayback() {
@@ -797,6 +803,7 @@ function renderDiagnostics(status) {
   elements['diagnostics-latency'].textContent = status.lastSample
     ? `${Math.round(status.lastSample.latencyMs)} ms · HTTP ${status.lastSample.httpStatus}`
     : '--';
+  renderPlaybackSyncDiagnostics();
   renderAudioOutputLatency();
 
   const attempts = document.createDocumentFragment();
@@ -818,6 +825,18 @@ function renderDiagnostics(status) {
   }
   elements['diagnostics-attempts'].replaceChildren(attempts);
   elements['diagnostics-detail'].textContent = status.error || status.sourceWarning || 'Nessun errore nell’ultimo tentativo.';
+}
+
+function renderPlaybackSyncDiagnostics() {
+  const status = playbackSyncDiagnostics.getState(config.playbackSyncIntervalMs);
+  elements['diagnostics-playback-checks'].textContent = String(status.checkCount);
+  elements['diagnostics-playback-interval'].textContent = status.averageIntervalMs === null
+    ? `${status.configuredIntervalMs} ms configurati · in attesa`
+    : `${status.configuredIntervalMs} ms configurati · ${Math.round(status.averageIntervalMs)} ms effettivi`;
+  elements['diagnostics-playback-drift'].textContent = status.driftSampleCount
+    ? `${status.driftSampleCount} misure · media ${status.averageAbsoluteDriftMs.toFixed(1)} ms · max ${status.maxAbsoluteDriftMs.toFixed(1)} ms`
+    : 'In attesa della riproduzione stabile';
+  elements['diagnostics-playback-corrections'].textContent = String(status.correctionCount);
 }
 
 function renderAudioOutputLatency() {

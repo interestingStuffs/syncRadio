@@ -1,4 +1,7 @@
 const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_PLAYBACK_SYNC_INTERVAL_MS = 50;
+const MIN_PLAYBACK_SYNC_INTERVAL_MS = 10;
+const MAX_PLAYBACK_SYNC_INTERVAL_MS = 1000;
 const DEFAULT_OUTPUT_LATENCY_REFRESH_INTERVAL_MS = 30000;
 const DEFAULT_MAX_OUTPUT_LATENCY_COMPENSATION_MS = 100;
 const MAX_OUTPUT_LATENCY_COMPENSATION_MS = 1000;
@@ -67,6 +70,13 @@ export async function loadConfig() {
     Number.MAX_SAFE_INTEGER,
     'outputLatencyRefreshIntervalMs',
   );
+  const playbackSyncIntervalMs = boundedNumber(
+    config.playbackSyncIntervalMs,
+    DEFAULT_PLAYBACK_SYNC_INTERVAL_MS,
+    MIN_PLAYBACK_SYNC_INTERVAL_MS,
+    MAX_PLAYBACK_SYNC_INTERVAL_MS,
+    'playbackSyncIntervalMs',
+  );
 
   return {
     stations,
@@ -81,6 +91,7 @@ export async function loadConfig() {
     requestTimeoutMs: positiveNumber(config.requestTimeoutMs, DEFAULT_TIMEOUT_MS),
     maxOutputLatencyCompensationMs,
     outputLatencyRefreshIntervalMs,
+    playbackSyncIntervalMs,
     localFallback: config.localFallback !== false,
   };
 }

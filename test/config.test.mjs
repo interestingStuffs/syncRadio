@@ -57,6 +57,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     requestTimeoutMs: 8000,
     maxOutputLatencyCompensationMs: 100,
     outputLatencyRefreshIntervalMs: 30000,
+    playbackSyncIntervalMs: 50,
     localFallback: true,
     useManifestDurations: false,
     showPlaybackCalibration: true,
@@ -69,6 +70,7 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
     timeSources: [],
     resyncIntervalMs: 15000,
     requestTimeoutMs: 2500,
+    playbackSyncIntervalMs: 100,
     localFallback: false,
   }));
 
@@ -80,6 +82,7 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
   assert.equal(config.resyncOnTrackChangeOnly, false);
   assert.equal(config.resyncIntervalMs, 15000);
   assert.equal(config.requestTimeoutMs, 2500);
+  assert.equal(config.playbackSyncIntervalMs, 100);
   assert.equal(config.maxOutputLatencyCompensationMs, 100);
   assert.equal(config.outputLatencyRefreshIntervalMs, 30000);
   assert.equal(config.localFallback, false);
@@ -108,6 +111,17 @@ test('rifiuta limiti non validi per la latenza audio', async (t) => {
 
   mockConfig(t, jsonResponse({ stations: [station], outputLatencyRefreshIntervalMs: 500 }));
   await assert.rejects(loadConfig(), /outputLatencyRefreshIntervalMs.*tra 1000 e/);
+});
+
+test('rifiuta intervalli non validi per il controllo audio', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], playbackSyncIntervalMs: 9 }));
+  await assert.rejects(loadConfig(), /playbackSyncIntervalMs.*tra 10 e 1000/);
+
+  mockConfig(t, jsonResponse({ stations: [station], playbackSyncIntervalMs: 1001 }));
+  await assert.rejects(loadConfig(), /playbackSyncIntervalMs.*tra 10 e 1000/);
+
+  mockConfig(t, jsonResponse({ stations: [station], playbackSyncIntervalMs: '50' }));
+  await assert.rejects(loadConfig(), /playbackSyncIntervalMs.*tra 10 e 1000/);
 });
 
 test('abilita la risincronizzazione solo al cambio traccia', async (t) => {

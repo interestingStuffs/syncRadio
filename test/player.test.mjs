@@ -131,7 +131,8 @@ test('riusa la traccia selezionata quando la posizione segue la timeline', async
 });
 
 test('corregge gli scarti oltre 10 ms riprogrammando la sorgente', async () => {
-  const setup = makePlayer();
+  const measurements = [];
+  const setup = makePlayer({ onSyncMeasurement: (measurement) => measurements.push(measurement) });
   await setup.player.tune(track(), 1000);
   const { player, context } = setup;
 
@@ -143,6 +144,25 @@ test('corregge gli scarti oltre 10 ms riprogrammando la sorgente', async () => {
   assert.equal(context.sources.length, 2);
   assert.equal(context.sources[0].stoppedAt, 11.07);
   assert.equal(context.sources[1].started.offset, 2.02);
+  assert.equal(measurements.length, 1);
+  assert.equal(measurements[0].corrected, true);
+  assert.ok(Math.abs(measurements[0].driftMs - 50) < 1e-9);
+});
+
+test('registra lo scarto senza riprogrammare quando resta entro la tolleranza', async () => {
+  const measurements = [];
+  const setup = makePlayer({ onSyncMeasurement: (measurement) => measurements.push(measurement) });
+  await setup.player.tune(track(), 1000);
+  const { player, context } = setup;
+
+  setup.now(1000);
+  context.currentTime = 11.005;
+  player.sync(track(), 2000);
+
+  assert.equal(context.sources.length, 1);
+  assert.equal(measurements.length, 1);
+  assert.equal(measurements[0].corrected, false);
+  assert.ok(Math.abs(measurements[0].driftMs) <= 10);
 });
 
 test('riallinea su richiesta senza cambiare sorgente audio', async () => {

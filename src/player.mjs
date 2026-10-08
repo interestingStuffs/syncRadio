@@ -7,6 +7,7 @@ export function createAudioPlayer({
   AudioContextConstructor = globalThis.AudioContext,
   fetchAudio = globalThis.fetch?.bind(globalThis),
   monotonicNow = () => performance.now(),
+  onSyncMeasurement = () => {},
 } = {}) {
   let context = null;
   let gainNode = null;
@@ -128,9 +129,12 @@ export function createAudioPlayer({
       const remainingLeadMs = Math.max(0, activeSource.startTime - context.currentTime) * 1000;
       const expectedPosition = (Math.max(0, offsetMs) + remainingLeadMs) / 1000;
       const actualPosition = playbackPosition(activeSource);
+      const driftMs = (actualPosition - expectedPosition) * 1000;
+      const corrected = Math.abs(driftMs) > SYNC_TOLERANCE_SECONDS * 1000;
+      onSyncMeasurement({ driftMs, corrected });
       requestedOffsetMs = Math.max(0, offsetMs);
       requestedAtMonotonicMs = now;
-      if (Math.abs(actualPosition - expectedPosition) <= SYNC_TOLERANCE_SECONDS) return;
+      if (!corrected) return;
     }
 
     playbackGeneration += 1;
