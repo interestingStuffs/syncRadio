@@ -49,7 +49,7 @@ By default, the app reads each audio file's duration from its metadata. With `us
 
 The app periodically samples the active provider, estimates UTC using the browser's monotonic clock, and uses the device clock only when `localFallback` is enabled. Time providers, manifests, and audio files must be reachable by the browser; cross-origin resources must allow CORS. Browser timer throttling, network delay, and audio-device buffering mean exact synchronization cannot be guaranteed.
 
-The player can preload the next track, adjust playback against the schedule, and optionally estimate audio output latency. The manual playback offset is stored in the browser and is not shared between devices.
+The player uses Web Audio to fetch, decode, and schedule tracks against the shared timeline. It preloads the next track, adjusts playback against the schedule, and optionally estimates audio output latency. Since Web Audio decodes complete tracks into memory, keep audio files reasonably sized. Audio files must allow cross-origin `fetch` requests when hosted on a different origin. The manual playback offset is stored in the browser and is not shared between devices.
 
 ## Tests and modules
 
@@ -59,4 +59,4 @@ Run the tests with Node.js:
 node --test
 ```
 
-Core logic is separated into modules: `clock.mjs` handles UTC synchronization, `timeline.mjs` maps time to tracks, `data-source.mjs` loads and validates manifests, `audio-metadata.mjs` resolves track durations, and `player.mjs` controls HTML audio. `app.mjs` connects these modules to the page.
+Core logic is separated into modules: `clock.mjs` handles UTC synchronization, `timeline.mjs` maps time to tracks, `data-source.mjs` loads and validates manifests, `audio-metadata.mjs` resolves track durations, and `player.mjs` schedules playback with Web Audio. `app.mjs` connects these modules to the page.

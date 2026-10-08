@@ -65,7 +65,7 @@ export function createAudioOutputLatencyMonitor({
             status: 'measured',
             latencyMs,
             compensationMs: latencyMs,
-            message: `Latenza stimata: ${latencyMs} ms. La pipeline HTML audio può avere buffering aggiuntivo.`,
+            message: `Latenza di uscita stimata: ${latencyMs} ms.`,
           });
         }
       } catch (error) {
@@ -111,7 +111,7 @@ export function createAudioOutputLatencyMonitor({
       compensationMs,
       pendingCompensationMs: null,
       message: state.status === 'measured'
-        ? `Latenza stimata: ${state.latencyMs} ms; compensazione applicata. La pipeline HTML audio può avere buffering aggiuntivo.`
+        ? `Latenza di uscita stimata: ${state.latencyMs} ms; compensazione applicata.`
         : `${candidateMessage} Compensazione attiva: ${compensationMs} ms.`,
     };
     return getState();
