@@ -282,11 +282,33 @@ function renderSchedule() {
     const duration = document.createElement('span');
     duration.className = 'schedule-duration';
     duration.textContent = formatDuration(item.track.durationMs);
-    entry.append(time, details, duration);
+    const timing = document.createElement('div');
+    timing.className = 'schedule-timing';
+    const nextOccurrence = document.createElement('time');
+    nextOccurrence.className = 'schedule-next-occurrence';
+    nextOccurrence.hidden = true;
+    timing.append(duration, nextOccurrence);
+    entry.append(time, details, timing);
     list.append(entry);
   }
 
   elements['schedule-list'].replaceChildren(list);
+}
+
+function renderNextScheduleOccurrence(timestamp, position) {
+  const schedule = manifest.repeat ? buildSchedule(manifest, timestamp + 1) : [];
+  const entries = elements['schedule-list'].children;
+  for (let index = 0; index < schedule.length; index += 1) {
+    const nextOccurrence = entries[index]?.querySelector('.schedule-next-occurrence');
+    if (!nextOccurrence) continue;
+    const previousTrackIndex = (position.index - 1 + schedule.length) % schedule.length;
+    const shouldShowOccurrence = position.track
+      && (index === position.index || index === previousTrackIndex);
+    nextOccurrence.hidden = !shouldShowOccurrence;
+    if (!shouldShowOccurrence) continue;
+    nextOccurrence.dateTime = new Date(schedule[index].startsAt).toISOString();
+    nextOccurrence.textContent = `Prossima ${formatTime(schedule[index].startsAt)}`;
+  }
 }
 
 function render() {
@@ -296,6 +318,9 @@ function render() {
 
   const timestamp = clock.now();
   if (timestamp === null) {
+    for (const occurrence of elements['schedule-list'].querySelectorAll('.schedule-next-occurrence')) {
+      occurrence.hidden = true;
+    }
     elements['track-time'].textContent = '--:--';
     elements['track-title'].textContent = 'Orologio comune non disponibile';
     elements['track-artist'].textContent = 'Le sorgenti configurate non rispondono e il fallback locale è disattivato.';
@@ -319,6 +344,7 @@ function render() {
     entries[index].classList.toggle('is-current', index === position.index);
     entries[index].classList.toggle('is-past', index < position.index);
   }
+  renderNextScheduleOccurrence(timestamp, position);
 
   if (!position.track) {
     elements['track-time'].textContent = '--:--';
@@ -872,13 +898,13 @@ function showConfigurationError(message) {
 }
 
 function formatTime(timestamp) {
-  return new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }).format(timestamp);
+  return new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit' }).format(timestamp);
 }
 
 function formatDateTime(timestamp) {
   return new Intl.DateTimeFormat('it-IT', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    timeZone: 'UTC', timeZoneName: 'short',
+    timeZoneName: 'short',
   }).format(timestamp);
 }
 

@@ -373,7 +373,9 @@ main { padding-top: 52px; }
 .schedule-item time { color: var(--muted); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
 .schedule-track-title { overflow: hidden; color: var(--ink); font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .schedule-artist { overflow: hidden; margin-top: 3px; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-timing { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .schedule-duration { color: var(--muted); font: 10px var(--mono); }
+.schedule-next-occurrence { color: var(--accent-dark); font: 9px var(--mono); white-space: nowrap; }
 .schedule-empty { padding: 18px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .schedule-footnote { margin: 14px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 

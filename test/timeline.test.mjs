@@ -91,3 +91,36 @@ test('costruisce gli orari consecutivi senza sovrapposizioni', () => {
     { id: 'three', index: 2, startsAt: start + 3500, endsAt: start + 4000 },
   ]);
 });
+
+test('mostra la prossima occorrenza per ogni traccia nelle playlist ripetute', () => {
+  const repeatingManifest = { ...manifest, repeat: true };
+  const schedule = buildSchedule(repeatingManifest, start + 1750);
+
+  assert.deepEqual(schedule.map(({ track, startsAt, endsAt }) => ({
+    id: track.id,
+    startsAt,
+    endsAt,
+  })), [
+    { id: 'one', startsAt: start + 4000, endsAt: start + 5000 },
+    { id: 'two', startsAt: start + 5000, endsAt: start + 7500 },
+    { id: 'three', startsAt: start + 3500, endsAt: start + 4000 },
+  ]);
+});
+
+test('mantiene l’occorrenza corrente all’istante esatto di avvio e la successiva dopo', () => {
+  const repeatingManifest = { ...manifest, repeat: true };
+
+  assert.equal(buildSchedule(repeatingManifest, start + 1000)[1].startsAt, start + 1000);
+  assert.equal(buildSchedule(repeatingManifest, start + 1001)[1].startsAt, start + 5000);
+});
+
+test('mostra le date future del primo ciclo prima dell’inizio della playlist', () => {
+  const repeatingManifest = { ...manifest, repeat: true };
+  const schedule = buildSchedule(repeatingManifest, start - 10_000);
+
+  assert.deepEqual(schedule.map(({ startsAt }) => startsAt), [
+    start,
+    start + 1000,
+    start + 3500,
+  ]);
+});

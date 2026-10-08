@@ -37,11 +37,17 @@ export function locateTrack(manifest, timestamp) {
   };
 }
 
-export function buildSchedule(manifest) {
-  let cursor = Date.parse(manifest.timelineStartsAt);
+export function buildSchedule(manifest, timestamp = Date.parse(manifest.timelineStartsAt)) {
+  const timelineStartsAt = Date.parse(manifest.timelineStartsAt);
+  const cycleDurationMs = manifest.tracks.reduce((total, track) => total + track.durationMs, 0);
+  const cycleIndex = manifest.repeat === true && timestamp >= timelineStartsAt
+    ? Math.floor((timestamp - timelineStartsAt) / cycleDurationMs)
+    : 0;
+  let offsetMs = 0;
   return manifest.tracks.map((track, index) => {
-    const startsAt = cursor;
-    cursor += track.durationMs;
-    return { track, index, startsAt, endsAt: cursor };
+    let startsAt = timelineStartsAt + offsetMs + cycleIndex * cycleDurationMs;
+    if (manifest.repeat === true && startsAt < timestamp) startsAt += cycleDurationMs;
+    offsetMs += track.durationMs;
+    return { track, index, startsAt, endsAt: startsAt + track.durationMs };
   });
 }
