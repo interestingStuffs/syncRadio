@@ -214,6 +214,18 @@ main { padding-top: 52px; }
 .tune-button:focus-visible, .sync-reset-button:focus-visible, input:focus-visible { outline: 3px solid #80b9a6; outline-offset: 3px; }
 .tune-button:disabled { cursor: not-allowed; opacity: 0.5; }
 .button-icon { width: 13px; text-align: center; font-size: 12px; }
+.tune-button.is-loading .button-icon {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: tune-spinner 800ms linear infinite;
+}
+
+@keyframes tune-spinner {
+  to { transform: rotate(360deg); }
+}
 
 .sync-reset-button {
   min-height: 42px;
@@ -415,4 +427,5 @@ main { padding-top: 52px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+  .tune-button.is-loading .button-icon { animation-duration: 2s; }
 }

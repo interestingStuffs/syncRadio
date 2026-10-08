@@ -37,6 +37,8 @@ let player = null;
 let audioOutputLatency = null;
 let playerError = '';
 let tunedIn = false;
+let tuningPending = false;
+let tuningRequestId = 0;
 let config = null;
 let stationLoadId = 0;
 let playbackCycleIndex = null;
@@ -68,7 +70,7 @@ async function start() {
     onError: (message) => {
       playerError = message;
       if (tunedIn) {
-        tunedIn = false;
+        cancelTuning();
         player?.pause();
         renderPlayerState();
       }
@@ -187,7 +189,7 @@ function updateStationUrl(station, replace = false) {
 async function loadStation(station) {
   const loadId = ++stationLoadId;
   manifest = null;
-  tunedIn = false;
+  cancelTuning();
   playbackCycleIndex = null;
   observedTrackStart = null;
   hasObservedSchedulePosition = false;
@@ -294,7 +296,7 @@ function render() {
     elements['remaining-time'].textContent = '--:--';
     elements['tune-button'].disabled = true;
     if (tunedIn) {
-      tunedIn = false;
+      cancelTuning();
       player.pause();
       renderPlayerState();
     }
@@ -320,7 +322,7 @@ function render() {
     elements['elapsed-time'].textContent = '--:--';
     elements['remaining-time'].textContent = '--:--';
     if (tunedIn) {
-      tunedIn = false;
+      cancelTuning();
       player.pause();
       renderPlayerState();
     }
@@ -359,7 +361,7 @@ function syncPlayback() {
   if (!tunedIn || !manifest || !clock) return;
   const timestamp = clock.now();
   if (timestamp === null) {
-    tunedIn = false;
+    cancelTuning();
     player.pause();
     renderPlayerState();
     return;
@@ -368,7 +370,7 @@ function syncPlayback() {
   const position = locatePlaybackPosition(timestamp);
   observeScheduledTrack(position);
   if (!position.track) {
-    tunedIn = false;
+    cancelTuning();
     player.pause();
     renderPlayerState();
     render();
@@ -387,7 +389,7 @@ function syncPlayback() {
 
 async function toggleTuning() {
   if (tunedIn) {
-    tunedIn = false;
+    cancelTuning();
     player.pause();
     renderPlayerState();
     render();
@@ -410,12 +412,19 @@ async function toggleTuning() {
   playerError = '';
   renderPlayerError();
   tunedIn = true;
+  tuningPending = true;
+  const requestId = ++tuningRequestId;
+  renderPlayerState();
   playbackCycleIndex = position.cycleIndex;
   const previousCompensationMs = audioOutputLatency.getCompensationMs();
   const latencyMeasurement = audioOutputLatency.measure();
   try {
     await player.tune(position.track, getPlayerOffset(position.offsetMs));
+    if (requestId !== tuningRequestId) return;
+    tuningPending = false;
+    renderPlayerState();
     await latencyMeasurement;
+    if (requestId !== tuningRequestId) return;
     audioOutputLatency.applyMeasurement();
     renderAudioOutputLatency();
     if (tunedIn && audioOutputLatency.getCompensationMs() !== previousCompensationMs) {
@@ -423,7 +432,8 @@ async function toggleTuning() {
     }
     startAudioOutputLatencyMonitoring();
   } catch (error) {
-    tunedIn = false;
+    if (requestId !== tuningRequestId) return;
+    cancelTuning();
     player.pause();
     playerError = error.name === 'NotAllowedError'
       ? 'Il browser ha bloccato la riproduzione. Premi Sintonizzati per riprovare.'
@@ -432,6 +442,12 @@ async function toggleTuning() {
   renderPlayerState();
   renderPlayerError();
   render();
+}
+
+function cancelTuning() {
+  tuningRequestId += 1;
+  tuningPending = false;
+  tunedIn = false;
 }
 
 async function realignPlayback() {
@@ -699,8 +715,12 @@ function createCalibrationToneUrl() {
 
 function renderPlayerState() {
   const playing = tunedIn && player?.isPlaying();
-  elements['button-icon'].textContent = tunedIn ? '■' : '▶';
-  elements['button-label'].textContent = tunedIn ? 'Disconnettiti' : 'Sintonizzati';
+  elements['tune-button'].classList.toggle('is-loading', tuningPending);
+  elements['tune-button'].setAttribute('aria-busy', String(tuningPending));
+  elements['button-icon'].textContent = tuningPending ? '' : tunedIn ? '■' : '▶';
+  elements['button-label'].textContent = tuningPending
+    ? 'Avvio audio…'
+    : tunedIn ? 'Disconnettiti' : 'Sintonizzati';
   elements['on-air-indicator'].classList.toggle('is-playing', Boolean(playing));
   elements['on-air-indicator'].lastChild.textContent = playing ? ' IN ASCOLTO' : ' PROGRAMMAZIONE';
 }
