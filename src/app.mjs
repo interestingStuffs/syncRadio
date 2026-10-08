@@ -297,13 +297,13 @@ function renderSchedule() {
 
 function renderNextScheduleOccurrence(timestamp, position) {
   const schedule = manifest.repeat ? buildSchedule(manifest, timestamp + 1) : [];
+  const firstCycleSchedule = manifest.repeat ? buildSchedule(manifest) : [];
   const entries = elements['schedule-list'].children;
   for (let index = 0; index < schedule.length; index += 1) {
     const nextOccurrence = entries[index]?.querySelector('.schedule-next-occurrence');
     if (!nextOccurrence) continue;
-    const previousTrackIndex = (position.index - 1 + schedule.length) % schedule.length;
     const shouldShowOccurrence = position.track
-      && (index === position.index || index === previousTrackIndex);
+      && (index === position.index || timestamp >= firstCycleSchedule[index].endsAt);
     nextOccurrence.hidden = !shouldShowOccurrence;
     if (!shouldShowOccurrence) continue;
     nextOccurrence.dateTime = new Date(schedule[index].startsAt).toISOString();
