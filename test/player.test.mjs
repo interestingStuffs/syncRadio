@@ -108,6 +108,7 @@ test('carica, decodifica e programma l’avvio con AudioContext', async () => {
   assert.equal(context.sources[0].started.when, 10.02);
   assert.equal(context.sources[0].started.offset, 2.52);
   assert.equal(setup.player.isPlaying(), true);
+  assert.equal(setup.player.getAudioContext(), context);
 });
 
 test('precarica e riutilizza il buffer decodificato al cambio traccia', async () => {

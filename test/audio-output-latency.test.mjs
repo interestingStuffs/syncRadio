@@ -60,6 +60,23 @@ test('riprende il contesto sospeso prima di leggere la latenza', async () => {
   assert.equal(monitor.getCompensationMs(), 24);
 });
 
+test('misura la latenza sul contesto audio condiviso con il player', async () => {
+  const sharedContext = {
+    outputLatency: 0.036,
+    state: 'running',
+  };
+  const monitor = createAudioOutputLatencyMonitor({
+    AudioContextConstructor: null,
+    getAudioContext: () => sharedContext,
+  });
+
+  const state = await monitor.measure();
+
+  assert.equal(state.status, 'measured');
+  assert.equal(state.latencyMs, 36);
+  assert.equal(state.pendingCompensationMs, 36);
+});
+
 test('ignora misure superiori alla soglia attendibile', async () => {
   const monitor = createAudioOutputLatencyMonitor({
     AudioContextConstructor: makeContext({

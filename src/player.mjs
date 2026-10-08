@@ -329,6 +329,7 @@ export function createAudioPlayer({
     stopCalibrationTone,
     scheduleNextTrack,
     pause,
+    getAudioContext() { return context; },
     sync(track, offsetMs, force = false) {
       requestTrack(track, offsetMs, force);
     },

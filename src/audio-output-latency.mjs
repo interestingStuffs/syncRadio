@@ -2,6 +2,7 @@ export const MAX_TRUSTWORTHY_OUTPUT_LATENCY_MS = 100;
 
 export function createAudioOutputLatencyMonitor({
   AudioContextConstructor = globalThis.AudioContext,
+  getAudioContext = () => null,
   maxCompensationMs = MAX_TRUSTWORTHY_OUTPUT_LATENCY_MS,
   compensationEnabled = true,
 } = {}) {
@@ -32,17 +33,19 @@ export function createAudioOutputLatencyMonitor({
     if (measurement) return measurement;
 
     measurement = (async () => {
-      if (typeof AudioContextConstructor !== 'function') {
-        recordMeasurement({
-          status: 'unsupported',
-          latencyMs: null,
-          compensationMs: 0,
-          message: 'Il browser non supporta AudioContext; compensazione automatica non disponibile.',
-        });
-        return getState();
-      }
-
       try {
+        const sharedContext = getAudioContext();
+        if (sharedContext) context = sharedContext;
+        if ((!context || context.state === 'closed')
+          && typeof AudioContextConstructor !== 'function') {
+          recordMeasurement({
+            status: 'unsupported',
+            latencyMs: null,
+            compensationMs: 0,
+            message: 'Il browser non supporta AudioContext; compensazione automatica non disponibile.',
+          });
+          return getState();
+        }
         if (!context || context.state === 'closed') {
           context = new AudioContextConstructor({ latencyHint: 'interactive' });
         }

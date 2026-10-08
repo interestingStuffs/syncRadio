@@ -89,6 +89,7 @@ async function start() {
     onStateChange: renderPlayerState,
   });
   audioOutputLatency = createAudioOutputLatencyMonitor({
+    getAudioContext: () => player.getAudioContext(),
     maxCompensationMs: config.maxOutputLatencyCompensationMs,
     compensationEnabled: config.enableOutputLatencyCompensation,
   });
@@ -469,13 +470,12 @@ async function toggleTuning() {
   const requestId = ++tuningRequestId;
   renderPlayerState();
   const previousCompensationMs = audioOutputLatency.getCompensationMs();
-  const latencyMeasurement = audioOutputLatency.measure();
   try {
     await player.tune(position.track, getPlayerOffset(position.offsetMs));
     if (requestId !== tuningRequestId) return;
     tuningPending = false;
     renderPlayerState();
-    await latencyMeasurement;
+    await audioOutputLatency.measure();
     if (requestId !== tuningRequestId) return;
     audioOutputLatency.applyMeasurement();
     renderAudioOutputLatency();
