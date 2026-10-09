@@ -27,6 +27,7 @@ const elements = Object.fromEntries([
   'calibration-earlier', 'calibration-later', 'calibration-status',
   'volume-slider', 'volume-toggle', 'player-error', 'configuration-error', 'sync-status', 'sync-icon', 'sync-message',
   'schedule-count', 'schedule-list', 'schedule-footnote', 'on-air-indicator', 'manifest-status',
+  'sync-diagnostics',
   'diagnostics-state', 'diagnostics-provider', 'diagnostics-utc', 'diagnostics-sample',
   'diagnostics-offset', 'diagnostics-uncertainty', 'diagnostics-latency', 'diagnostics-output-latency',
   'diagnostics-attempts', 'diagnostics-detail', 'diagnostics-playback-checks',
@@ -67,6 +68,7 @@ async function start() {
   }
   elements['playback-offset-controls'].hidden = !config.showPlaybackOffsetControls;
   elements['offset-calibration'].hidden = !config.showPlaybackCalibration;
+  elements['sync-diagnostics'].hidden = !config.showSyncDiagnostics;
 
   clock = createClock({
     sources: config.timeSources,

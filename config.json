@@ -4,6 +4,7 @@
   "useManifestDurations": true,
   "showPlaybackOffsetControls": false,
   "showPlaybackCalibration": false,
+  "showSyncDiagnostics": false,
   "customTimeSource": {
     "name": "SyncRadio · UTC",
     "url": "",

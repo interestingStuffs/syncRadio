@@ -72,6 +72,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     useManifestDurations: false,
     showPlaybackCalibration: true,
     showPlaybackOffsetControls: true,
+    showSyncDiagnostics: true,
   });
 });
 
@@ -366,4 +367,12 @@ test('configura la visibilità dei comandi di offset manuale', async (t) => {
 
   mockConfig(t, jsonResponse({ stations: [station], showPlaybackOffsetControls: 'false' }));
   await assert.rejects(loadConfig(), /showPlaybackOffsetControls.*true o false/);
+});
+
+test('configura la visibilità delle metriche di sincronizzazione', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], showSyncDiagnostics: false }));
+  assert.equal((await loadConfig()).showSyncDiagnostics, false);
+
+  mockConfig(t, jsonResponse({ stations: [station], showSyncDiagnostics: 'false' }));
+  await assert.rejects(loadConfig(), /showSyncDiagnostics.*true o false/);
 });
