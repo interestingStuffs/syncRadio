@@ -2,7 +2,7 @@
   "allowStationSwitch": true,
   "stationQueryParam": "station",
   "useManifestDurations": true,
-  "showPlaybackOffsetControls": false,
+  "showPlaybackOffsetControls": true,
   "showPlaybackCalibration": false,
   "showSyncDiagnostics": true,
   "customTimeSource": {
