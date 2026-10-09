@@ -35,7 +35,7 @@
       "timeZonePath": ""
     }
   ],
-  "resyncOnTrackChangeOnly": true,
+  "resyncOnTrackChangeOnly": false,
   "resyncIntervalMs": 15000,
   "playbackSyncIntervalMs": 50,
   "requestTimeoutMs": 5000,
