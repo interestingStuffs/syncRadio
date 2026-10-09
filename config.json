@@ -40,7 +40,7 @@
   "playbackSyncIntervalMs": 50,
   "requestTimeoutMs": 5000,
   "enableOutputLatencyCompensation": true,
-  "maxOutputLatencyCompensationMs": 100,
+  "maxOutputLatencyCompensationMs": 500,
   "outputLatencyRefreshIntervalMs": 30000,
   "localFallback": false
 }
