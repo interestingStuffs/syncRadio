@@ -1,0 +1,80 @@
+{
+  "stations": [
+    {
+      "id": "sation-1",
+      "name": "Relaxing",
+      "description": "sample playlist",
+      "timelineStartsAt": "2026-10-07T08:00:30.000Z",
+      "repeat": true,
+      "tracks": [
+        {
+          "id": "2",
+          "title": "track2",
+          "artist": "artist2",
+          "audioUrl": "samples/audio/grand_project-wonders-of-the-earth-550792.mp3",
+          "duration": "2:30"
+        },
+        {
+          "id": "6",
+          "title": "track6",
+          "artist": "artist6",
+          "audioUrl": "samples/audio/mickeyscat-moment-of-peace-mickeyscat-554494.mp3",
+          "duration": "2:33"
+        }
+      ]
+    },
+    {
+      "id": "station-2",
+      "name": "Powerful",
+      "description": "sample playlist",
+      "timelineStartsAt": "2026-10-07T08:00:30.000Z",
+      "repeat": true,
+      "tracks": [
+        {
+          "id": "4",
+          "title": "track4",
+          "artist": "artist4",
+          "audioUrl": "samples/audio/lnplusmusic-sport-sports-rock-music-597971.mp3",
+          "duration": "1:57"
+        },
+        {
+          "id": "7",
+          "title": "track7",
+          "artist": "artist7",
+          "audioUrl": "samples/audio/sigmamusicart-football-football-music-551346.mp3",
+          "duration": "1:00"
+        }
+      ]
+    },
+    {
+      "id": "station-3",
+      "name": "Move!",
+      "description": "sample playlist",
+      "timelineStartsAt": "2026-10-07T08:00:30.000Z",
+      "repeat": true,
+      "tracks": [
+        {
+          "id": "1",
+          "title": "track1",
+          "artist": "artist1",
+          "audioUrl": "samples/audio/fassounds-escape-your-love-upbeat-fashion-pop-dance-412230.mp3",
+          "duration": "2:20"
+        },
+        {
+          "id": "3",
+          "title": "track3",
+          "artist": "artist3",
+          "audioUrl": "samples/audio/kontraa-water-afro-pop-music-445661.mp3",
+          "duration": "1:10"
+        },
+        {
+          "id": "5",
+          "title": "track5",
+          "artist": "artist5",
+          "audioUrl": "samples/audio/lnplusmusic-suspense-tension-horror-trailer-323181.mp3",
+          "duration": "0:59"
+        }
+      ]
+    }
+  ]
+}

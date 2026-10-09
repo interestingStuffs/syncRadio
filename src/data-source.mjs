@@ -1,5 +1,5 @@
-export async function loadStationManifest(url, timelineStartsAt, timeoutMs = 8000) {
-  if (!url) throw new Error('Configura manifestUrl della stazione in config.json.');
+export async function loadStationCatalog(url, timeoutMs = 8000) {
+  if (!url) throw new Error('Configura stationCatalogUrl in config.json.');
 
   let response;
   try {
@@ -8,37 +8,68 @@ export async function loadStationManifest(url, timelineStartsAt, timeoutMs = 800
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    if (error.name === 'TimeoutError') throw new Error('Timeout durante il caricamento del manifesto.');
-    throw new Error('Manifesto non raggiungibile. Verifica URL, connessione e permessi CORS.');
+    if (error.name === 'TimeoutError') throw new Error('Timeout durante il caricamento del catalogo delle stazioni.');
+    throw new Error('Catalogo delle stazioni non raggiungibile. Verifica URL, connessione e permessi CORS.');
   }
 
-  if (!response.ok) throw new Error(`Manifesto non disponibile (HTTP ${response.status}).`);
+  if (!response.ok) throw new Error(`Catalogo delle stazioni non disponibile (HTTP ${response.status}).`);
   const text = await response.text();
-  const contentType = response.headers.get('content-type') || '';
-  const isCsv = /(?:text\/csv|application\/csv)/i.test(contentType) || /\.csv(?:$|[?#])/i.test(url);
-  let manifest;
-
   try {
-    manifest = isCsv ? parseCsvManifest(text) : JSON.parse(text);
+    return validateStationCatalog(JSON.parse(text), new URL(url, document.baseURI).href);
   } catch (error) {
-    if (error instanceof SyntaxError) throw new Error('Il manifesto non contiene JSON valido. Per il CSV usa le intestazioni documentate.');
+    if (error instanceof SyntaxError) throw new Error('Il catalogo delle stazioni non contiene JSON valido.');
     throw error;
   }
-
-  return validateManifest(manifest, timelineStartsAt);
 }
 
-export function validateManifest(value, timelineStartsAt) {
+export function validateStationCatalog(value, catalogUrl = document.baseURI) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Il manifesto deve contenere una lista di tracce.');
+    throw new Error('Il catalogo delle stazioni deve contenere una lista di stazioni.');
+  }
+  if (!Array.isArray(value.stations) || value.stations.length === 0) {
+    throw new Error('Il catalogo deve contenere almeno una stazione.');
   }
 
-  const startsAt = requiredText(timelineStartsAt, 'timelineStartsAt della stazione in config.json');
+  const ids = new Set();
+  return value.stations.map((station, index) => {
+    const label = `stations[${index}]`;
+    if (!station || typeof station !== 'object' || Array.isArray(station)) {
+      throw new Error(`${label} deve essere un oggetto.`);
+    }
+    const id = requiredText(station.id, `${label}.id`);
+    if (ids.has(id)) throw new Error(`Identificativo duplicato nel catalogo delle stazioni: ${id}.`);
+    ids.add(id);
+
+    const name = requiredText(station.name, `${label}.name`);
+    const description = requiredText(station.description, `${label}.description`);
+    const timelineStartsAt = requiredText(station.timelineStartsAt, `${label}.timelineStartsAt`);
+    if (station.repeat !== undefined && typeof station.repeat !== 'boolean') {
+      throw new Error(`${label}.repeat deve essere true o false.`);
+    }
+
+    const { tracks } = validateStationTracks(station, timelineStartsAt, catalogUrl);
+    return {
+      id,
+      name,
+      description,
+      timelineStartsAt,
+      repeat: station.repeat === true,
+      tracks,
+    };
+  });
+}
+
+function validateStationTracks(value, timelineStartsAt, baseUrl) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('La stazione deve contenere una lista di tracce.');
+  }
+
+  const startsAt = requiredText(timelineStartsAt, 'timelineStartsAt della stazione');
   if (!hasTimezone(startsAt) || !Number.isFinite(Date.parse(startsAt))) {
-    throw new Error('timelineStartsAt della stazione deve essere una data ISO 8601 valida con fuso orario, ad esempio UTC con Z.');
+    throw new Error('timelineStartsAt della stazione deve essere una data ISO 8601 valida con fuso orario.');
   }
   if (!Array.isArray(value.tracks) || value.tracks.length === 0) {
-    throw new Error('Il manifesto deve contenere almeno una traccia ufficiale.');
+    throw new Error('La stazione deve contenere almeno una traccia.');
   }
 
   const ids = new Set();
@@ -47,13 +78,13 @@ export function validateManifest(value, timelineStartsAt) {
       throw new Error(`La traccia ${index + 1} non è un oggetto valido.`);
     }
     const id = requiredText(track.id, `identificativo della traccia ${index + 1}`);
-    if (ids.has(id)) throw new Error(`Identificativo duplicato nel manifesto: ${id}.`);
+    if (ids.has(id)) throw new Error(`Identificativo duplicato nella scaletta: ${id}.`);
     ids.add(id);
 
     const audioUrl = requiredText(track.audioUrl, `URL audio della traccia ${index + 1}`);
     let parsedAudioUrl;
     try {
-      parsedAudioUrl = new URL(audioUrl, document.baseURI);
+      parsedAudioUrl = new URL(audioUrl, baseUrl);
     } catch {
       throw new Error(`URL audio non valido nella traccia ${index + 1}.`);
     }
@@ -75,76 +106,6 @@ export function validateManifest(value, timelineStartsAt) {
     timelineStartsAt: startsAt,
     tracks,
   };
-}
-
-export function parseCsvManifest(text) {
-  const rows = parseCsvRows(text);
-  if (rows.length < 2) throw new Error('Il CSV deve contenere intestazioni e almeno una traccia.');
-
-  const headers = rows.shift().map((header) => header.trim().replace(/^\uFEFF/, ''));
-  const requiredHeaders = ['id', 'title', 'artist', 'audioUrl'];
-  const headerIndexes = new Map(headers.map((header, index) => [header, index]));
-  const missingHeaders = requiredHeaders.filter((header) => !headerIndexes.has(header));
-  if (missingHeaders.length) throw new Error(`Intestazioni CSV mancanti: ${missingHeaders.join(', ')}.`);
-
-  const records = rows.filter((row) => row.some((cell) => cell.trim() !== ''));
-  if (records.length === 0) throw new Error('Il CSV non contiene tracce.');
-  const field = (row, key) => (row[headerIndexes.get(key)] || '').trim();
-
-  return {
-    tracks: records.map((row) => {
-      const track = {
-        id: field(row, 'id'),
-        title: field(row, 'title'),
-        artist: field(row, 'artist'),
-        audioUrl: field(row, 'audioUrl'),
-      };
-      if (headerIndexes.has('duration')) track.duration = field(row, 'duration');
-      return track;
-    }),
-  };
-}
-
-function parseCsvRows(text) {
-  const rows = [];
-  let row = [];
-  let field = '';
-  let quoted = false;
-  const input = text.replace(/^\uFEFF/, '');
-
-  for (let index = 0; index < input.length; index += 1) {
-    const char = input[index];
-    if (quoted) {
-      if (char === '"' && input[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else if (char === '"') {
-        quoted = false;
-      } else {
-        field += char;
-      }
-    } else if (char === '"' && field === '') {
-      quoted = true;
-    } else if (char === ',') {
-      row.push(field);
-      field = '';
-    } else if (char === '\n' || char === '\r') {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = '';
-      if (char === '\r' && input[index + 1] === '\n') index += 1;
-    } else {
-      field += char;
-    }
-  }
-
-  if (quoted) throw new Error('Il CSV contiene un campo tra virgolette non chiuso.');
-  if (field !== '' || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows;
 }
 
 function requiredText(value, label) {

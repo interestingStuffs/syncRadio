@@ -7,7 +7,6 @@ const station = {
   id: 'radio',
   name: 'Radio',
   description: 'Descrizione',
-  manifestUrl: './station.json',
   timelineStartsAt: '2026-01-01T00:00:00Z',
   repeat: false,
 };
@@ -16,8 +15,18 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-function mockConfig(t, response) {
-  t.mock.method(globalThis, 'fetch', async () => response);
+function mockConfig(t, response, { defaultStationCatalogUrl = true } = {}) {
+  t.mock.method(globalThis, 'fetch', async () => {
+    if (!defaultStationCatalogUrl || !response.ok || typeof response.json !== 'function') return response;
+    return {
+      ...response,
+      json: async () => {
+        const config = await response.json();
+        if (!config || typeof config !== 'object' || Array.isArray(config)) return config;
+        return { stationCatalogUrl: './stations.json', ...config };
+      },
+    };
+  });
 }
 
 function jsonResponse(value, status = 200) {
@@ -30,7 +39,7 @@ function jsonResponse(value, status = 200) {
 
 test('carica e normalizza la configurazione con i valori predefiniti', async (t) => {
   mockConfig(t, jsonResponse({
-    stations: [{ ...station, name: ' Radio ', description: ' Descrizione ', manifestUrl: '  ./station.json ' }],
+    stationCatalogUrl: '  ./catalog.json ',
     allowStationSwitch: true,
     timeSources: [{
       name: ' Orologio ',
@@ -41,7 +50,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
   }));
 
   assert.deepEqual(await loadConfig(), {
-    stations: [{ ...station }],
+    stationCatalogUrl: './catalog.json',
     allowStationSwitch: true,
     stationQueryParam: null,
     customTimeSourceOnly: false,
@@ -78,7 +87,7 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
 
   const config = await loadConfig();
   assert.deepEqual(config.timeSources, []);
-  assert.deepEqual(config.stations, [station]);
+  assert.equal(config.stationCatalogUrl, './stations.json');
   assert.equal(config.allowStationSwitch, false);
   assert.equal(config.customTimeSourceOnly, false);
   assert.equal(config.resyncOnTrackChangeOnly, false);
@@ -295,18 +304,15 @@ test('rifiuta formati di risposta delle sorgenti orarie non supportati', async (
   await assert.rejects(loadConfig(), /responseFormat deve essere "json" o "text"/);
 });
 
-test('valida metadati, URL e ID univoci delle stazioni', async (t) => {
-  mockConfig(t, jsonResponse({ stations: [] }));
-  await assert.rejects(loadConfig(), /almeno una stazione/);
+test('richiede un URL al catalogo delle stazioni', async (t) => {
+  mockConfig(t, jsonResponse({}), { defaultStationCatalogUrl: false });
+  await assert.rejects(loadConfig(), /richiede stationCatalogUrl/);
 
-  mockConfig(t, jsonResponse({ stations: [station, station] }));
-  await assert.rejects(loadConfig(), /Identificativo duplicato/);
+  mockConfig(t, jsonResponse({ stationCatalogUrl: '  ' }));
+  await assert.rejects(loadConfig(), /richiede stationCatalogUrl/);
 
-  mockConfig(t, jsonResponse({ stations: [{ ...station, name: '' }] }));
-  await assert.rejects(loadConfig(), /richiede id, name, description, manifestUrl e timelineStartsAt/);
-
-  mockConfig(t, jsonResponse({ stations: [{ ...station, timelineStartsAt: '2026-01-01T00:00:00' }] }));
-  await assert.rejects(loadConfig(), /timelineStartsAt.*fuso orario/);
+  mockConfig(t, jsonResponse({ stationCatalogUrl: 42 }));
+  await assert.rejects(loadConfig(), /stationCatalogUrl.*deve essere una stringa/);
 
   mockConfig(t, jsonResponse({ stations: [station], allowStationSwitch: 'true' }));
   await assert.rejects(loadConfig(), /allowStationSwitch.*true o false/);
@@ -360,16 +366,4 @@ test('configura la visibilità dei comandi di offset manuale', async (t) => {
 
   mockConfig(t, jsonResponse({ stations: [station], showPlaybackOffsetControls: 'false' }));
   await assert.rejects(loadConfig(), /showPlaybackOffsetControls.*true o false/);
-});
-
-test('valida e normalizza la ripetizione per stazione', async (t) => {
-  mockConfig(t, jsonResponse({
-    stations: [{ ...station, repeat: true }],
-  }));
-  assert.equal((await loadConfig()).stations[0].repeat, true);
-
-  mockConfig(t, jsonResponse({
-    stations: [{ ...station, repeat: 'true' }],
-  }));
-  await assert.rejects(loadConfig(), /stations\[0\]\.repeat deve essere true o false/);
 });

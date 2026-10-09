@@ -10,24 +10,31 @@ Serve the repository over HTTP (ES modules and `fetch` do not work reliably from
 python3 -m http.server 8000
 ```
 
-Edit [`config.json`](./config.json) to configure stations and time sources. It is part of this repository and must be deployed with the app.
+Edit [`config.json`](./config.json) to configure global settings and time sources. It and the station catalog it references must be deployed with the app.
 
 ## Configure stations
 
-Each entry in `stations` requires a unique `id`, `name`, `description`, `manifestUrl`, and an ISO 8601 `timelineStartsAt` with a timezone. Set `repeat: true` to repeat the playlist indefinitely; otherwise playback ends after the last track.
+Set `stationCatalogUrl` in `config.json` to the JSON file containing the stations. Each entry in its `stations` array requires a unique `id`, `name`, `description`, an ISO 8601 `timelineStartsAt` with a timezone, and a non-empty `tracks` array. Set `repeat: true` to repeat the playlist indefinitely; otherwise playback ends after the last track.
 
 ```json
 {
-  "allowStationSwitch": true,
-  "stationQueryParam": "station",
+  "stationCatalogUrl": "stations.json",
   "stations": [
     {
       "id": "radio-one",
       "name": "Radio One",
       "description": "Example station",
-      "manifestUrl": "samples/station-1.csv",
       "timelineStartsAt": "2026-10-07T08:00:30.000Z",
-      "repeat": true
+      "repeat": true,
+      "tracks": [
+        {
+          "id": "track-1",
+          "title": "Example track",
+          "artist": "Example artist",
+          "audioUrl": "samples/audio/example.mp3",
+          "duration": "3:20"
+        }
+      ]
     }
   ]
 }
@@ -35,11 +42,9 @@ Each entry in `stations` requires a unique `id`, `name`, `description`, `manifes
 
 The first station is selected by default. When `stationQueryParam` is set, a matching URL parameter (for example `?station=radio-one`) selects a station and browser navigation can switch between stations. The selector is shown only when `allowStationSwitch` is `true` and at least two stations are configured.
 
-## Playlist manifests
+## Tracce e playlist
 
-CSV is recommended. The repository includes [`samples/station-1.csv`](./samples/station-1.csv), [`samples/station-2.csv`](./samples/station-2.csv), and [`samples/station-3.csv`](./samples/station-3.csv). CSV headers must include `id,title,artist,audioUrl`; the optional `duration` column accepts `M:SS` or `M:SS.mmm`.
-
-JSON manifests are also supported and use a top-level `tracks` array with the same fields. Track IDs must be unique within a manifest. Audio URLs may be absolute or relative to the page and must use HTTP or HTTPS.
+Tracks use `id`, `title`, `artist`, and `audioUrl`; the optional `duration` accepts `M:SS` or `M:SS.mmm`. Track IDs must be unique within each station. Audio URLs may be absolute or relative to the station catalog file and must use HTTP or HTTPS. The example catalog is [`stations.json`](./stations.json).
 
 By default, the app reads each audio file's duration from its metadata. With `useManifestDurations: true`, it uses manifest durations only when every track has a valid duration; if any duration is missing, it reads metadata for the whole playlist. A supplied but invalid duration is reported as an error.
 
@@ -59,4 +64,4 @@ Run the tests with Node.js:
 node --test
 ```
 
-Core logic is separated into modules: `clock.mjs` handles UTC synchronization, `timeline.mjs` maps time to tracks, `data-source.mjs` loads and validates manifests, `audio-metadata.mjs` resolves track durations, and `player.mjs` schedules playback with Web Audio. `app.mjs` connects these modules to the page.
+Core logic is separated into modules: `clock.mjs` handles UTC synchronization, `timeline.mjs` maps time to tracks, `data-source.mjs` loads and validates the station catalog, `audio-metadata.mjs` resolves track durations, and `player.mjs` schedules playback with Web Audio. `app.mjs` connects these modules to the page.

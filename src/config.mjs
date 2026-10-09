@@ -21,7 +21,10 @@ export async function loadConfig() {
     throw new Error('config.json deve contenere un oggetto JSON.');
   }
 
-  const stations = validateStations(config.stations);
+  const stationCatalogUrl = requireString(config.stationCatalogUrl, 'stationCatalogUrl');
+  if (!stationCatalogUrl) {
+    throw new Error('config.json richiede stationCatalogUrl per il catalogo delle stazioni.');
+  }
   const customTimeSource = config.customTimeSource === undefined
     ? null
     : validateCustomTimeSource(config.customTimeSource);
@@ -86,7 +89,7 @@ export async function loadConfig() {
   );
 
   return {
-    stations,
+    stationCatalogUrl,
     allowStationSwitch: config.allowStationSwitch === true,
     stationQueryParam,
     useManifestDurations: config.useManifestDurations === true,
@@ -103,39 +106,6 @@ export async function loadConfig() {
     playbackSyncIntervalMs,
     localFallback: config.localFallback !== false,
   };
-}
-
-function validateStations(value) {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error('stations in config.json deve essere una lista contenente almeno una stazione.');
-  }
-
-  const ids = new Set();
-  return value.map((station, index) => {
-    const label = `stations[${index}]`;
-    if (!station || typeof station !== 'object' || Array.isArray(station)) {
-      throw new Error(`${label} deve essere un oggetto.`);
-    }
-
-    const id = requireString(station.id, `${label}.id`);
-    const name = requireString(station.name, `${label}.name`);
-    const description = requireString(station.description, `${label}.description`);
-    const manifestUrl = requireString(station.manifestUrl, `${label}.manifestUrl`);
-    const timelineStartsAt = requireString(station.timelineStartsAt, `${label}.timelineStartsAt`);
-    if (station.repeat !== undefined && typeof station.repeat !== 'boolean') {
-      throw new Error(`${label}.repeat deve essere true o false.`);
-    }
-    if (!id || !name || !description || !manifestUrl || !timelineStartsAt) {
-      throw new Error(`${label} richiede id, name, description, manifestUrl e timelineStartsAt.`);
-    }
-    if (!hasTimezone(timelineStartsAt) || !Number.isFinite(Date.parse(timelineStartsAt))) {
-      throw new Error(`${label}.timelineStartsAt deve essere una data ISO 8601 valida con fuso orario.`);
-    }
-    if (ids.has(id)) throw new Error(`Identificativo duplicato in config.json: ${id}.`);
-    ids.add(id);
-
-    return { id, name, description, manifestUrl, timelineStartsAt, repeat: station.repeat === true };
-  });
 }
 
 function requireString(value, name) {
@@ -156,10 +126,6 @@ function boundedNumber(value, fallback, minimum, maximum, name) {
     );
   }
   return value;
-}
-
-function hasTimezone(value) {
-  return /T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/i.test(value);
 }
 
 function validateTimeSources(value) {

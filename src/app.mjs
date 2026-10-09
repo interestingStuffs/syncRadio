@@ -1,6 +1,6 @@
 import { loadConfig } from './config.mjs';
 import { createClock } from './clock.mjs';
-import { loadStationManifest } from './data-source.mjs';
+import { loadStationCatalog } from './data-source.mjs';
 import { resolveTrackDurations } from './audio-metadata.mjs';
 import { createAudioPlayer } from './player.mjs';
 import { createAudioOutputLatencyMonitor } from './audio-output-latency.mjs';
@@ -60,6 +60,7 @@ let calibrationBaselineOffsetMs = 0;
 async function start() {
   try {
     config = await loadConfig();
+    config.stations = await loadStationCatalog(config.stationCatalogUrl, config.requestTimeoutMs);
   } catch (error) {
     showConfigurationError(error.message);
     return;
@@ -209,7 +210,7 @@ async function loadStation(station) {
   elements['station-select'].disabled = true;
   elements['station-name'].textContent = station.name;
   elements['station-description'].textContent = station.description;
-  elements['manifest-status'].textContent = 'CARICAMENTO MANIFESTO';
+  elements['manifest-status'].textContent = 'CARICAMENTO SCALLETTA';
   elements['schedule-count'].textContent = '00';
   elements['schedule-list'].replaceChildren();
   elements['schedule-footnote'].textContent = 'Caricamento della scaletta…';
@@ -225,22 +226,22 @@ async function loadStation(station) {
   renderPlayerError();
 
   try {
-    const loadedManifest = await loadStationManifest(
-      station.manifestUrl,
-      station.timelineStartsAt,
-      config.requestTimeoutMs,
-    );
+    const loadedManifest = {
+      timelineStartsAt: station.timelineStartsAt,
+      tracks: station.tracks,
+      repeat: station.repeat,
+    };
     const loadedWithDurations = await resolveTrackDurations(loadedManifest, {
       timeoutMs: config.requestTimeoutMs,
       useManifestDurations: config.useManifestDurations,
     });
     if (loadId !== stationLoadId) return;
-    manifest = { ...loadedWithDurations, repeat: station.repeat };
+    manifest = loadedWithDurations;
     renderManifest();
     render();
   } catch (error) {
     if (loadId !== stationLoadId) return;
-    elements['manifest-status'].textContent = 'MANIFESTO NON DISPONIBILE';
+    elements['manifest-status'].textContent = 'SCALLETTA NON DISPONIBILE';
     elements['schedule-footnote'].textContent = 'La scaletta non è disponibile.';
     elements['track-title'].textContent = 'Stazione non disponibile';
     showConfigurationError(error.message);
@@ -250,7 +251,7 @@ async function loadStation(station) {
 }
 
 function renderManifest() {
-  elements['manifest-status'].textContent = 'MANIFESTO UFFICIALE CARICATO';
+  elements['manifest-status'].textContent = 'SCALLETTA CARICATA';
   elements['schedule-count'].textContent = String(manifest.tracks.length).padStart(2, '0');
   const repeatNote = manifest.repeat ? ' La scaletta si ripete indefinitamente.' : ' La scaletta non si ripete.';
   elements['schedule-footnote'].textContent = `Inizio timeline: ${formatDateTime(Date.parse(manifest.timelineStartsAt))}.${repeatNote}`;
@@ -353,7 +354,7 @@ function render() {
     elements['track-title'].textContent = position.elapsedMs < 0 ? 'La trasmissione non è ancora iniziata' : 'La scaletta è terminata';
     elements['track-artist'].textContent = position.elapsedMs < 0
       ? `La prima traccia parte alle ${formatDateTime(Date.parse(manifest.timelineStartsAt))}.`
-      : 'Non sono previste altre tracce nel manifesto ufficiale.';
+      : 'Non sono previste altre tracce nella scaletta ufficiale.';
     elements['progress-fill'].style.width = '0%';
     elements['elapsed-time'].textContent = '--:--';
     elements['remaining-time'].textContent = '--:--';
