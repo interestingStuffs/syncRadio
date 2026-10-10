@@ -28,9 +28,12 @@ test('sincronizza dal provider primario e stima il tempo con l’orologio monoto
     sources: [source('Primario', 'https://primary.example/time')],
   });
 
-  const status = await clock.synchronize();
+  const synchronization = clock.synchronize();
+  assert.equal(clock.status().synchronizing, true);
+  const status = await synchronization;
 
   assert.equal(status.synchronized, true);
+  assert.equal(status.synchronizing, false);
   assert.equal(status.source, 'Primario');
   assert.equal(status.attempts[0].state, 'ok');
   assert.equal(status.lastSample.httpStatus, 200);
@@ -62,6 +65,7 @@ test('sceglie il campione con RTT minimo tra le misure dello stesso provider', a
 });
 
 test('riusa il minimo RTT recente e scarta le misure scadute', async (t) => {
+  const wallClockBase = Date.now();
   let monotonicMs = 0;
   const durations = [
     80, 10, 40, 30, 20, 80, 90, 100, 110, 120,
@@ -70,9 +74,11 @@ test('riusa il minimo RTT recente e scarta le misure scadute', async (t) => {
   ];
   let requestIndex = 0;
   t.mock.method(performance, 'now', () => monotonicMs);
+  t.mock.method(Date, 'now', () => wallClockBase + monotonicMs);
   t.mock.method(globalThis, 'fetch', async () => {
-    monotonicMs += durations[requestIndex++];
-    return response({ utc: '2026-01-01T00:00:00.000Z' });
+    const sampleIndex = requestIndex++;
+    monotonicMs += durations[sampleIndex];
+    return response({ utc: new Date(Date.UTC(2026, 0, 1, 0, 0, sampleIndex)).toISOString() });
   });
   const clock = createClock({
     sources: [source('Primario', 'https://primary.example/time')],
@@ -84,6 +90,8 @@ test('riusa il minimo RTT recente e scarta le misure scadute', async (t) => {
   assert.equal(firstStatus.lastSample.sampleCount, 10);
   assert.equal(secondStatus.lastSample.sampleCount, 20);
   assert.equal(secondStatus.lastSample.latencyMs, 10);
+  assert.equal(secondStatus.lastSample.utcMs, firstStatus.lastSample.utcMs);
+  assert.ok(secondStatus.synchronizedAt > firstStatus.synchronizedAt);
 
   monotonicMs += 120_001;
   const expiredStatus = await clock.synchronize();

@@ -14,6 +14,7 @@ export function createClock({ sources = [], timeoutMs = 8000, localFallback = tr
   let recentSamples = [];
   let attempts = sources.map((source) => ({ ...source, state: 'pending', latencyMs: null, error: '' }));
   let synchronizationQueue = Promise.resolve();
+  let pendingSynchronizations = 0;
 
   function now() {
     if (!anchor) return localFallback ? Date.now() : null;
@@ -37,7 +38,16 @@ export function createClock({ sources = [], timeoutMs = 8000, localFallback = tr
   }
 
   function queueSynchronization(forceReset) {
-    const result = synchronizationQueue.then(() => synchronizeClock(forceReset));
+    pendingSynchronizations += 1;
+    const result = synchronizationQueue
+      .then(() => synchronizeClock(forceReset))
+      .then((synchronizationStatus) => ({
+        ...synchronizationStatus,
+        synchronizing: pendingSynchronizations > 1,
+      }))
+      .finally(() => {
+        pendingSynchronizations -= 1;
+      });
     synchronizationQueue = result.catch(() => {});
     return result;
   }
@@ -146,6 +156,7 @@ export function createClock({ sources = [], timeoutMs = 8000, localFallback = tr
     if (!anchor) {
       return {
         synchronized: false,
+        synchronizing: pendingSynchronizations > 0,
         fallback: localFallback,
         error: lastError,
         source: null,
@@ -158,6 +169,7 @@ export function createClock({ sources = [], timeoutMs = 8000, localFallback = tr
     }
     return {
       synchronized: true,
+      synchronizing: pendingSynchronizations > 0,
       fallback: false,
       error: lastError,
       source: activeSource,

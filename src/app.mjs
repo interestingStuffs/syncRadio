@@ -30,7 +30,7 @@ const elements = Object.fromEntries([
   'volume-slider', 'volume-toggle', 'player-error', 'configuration-error', 'sync-status', 'sync-icon', 'sync-message',
   'schedule-count', 'schedule-list', 'schedule-footnote', 'on-air-indicator', 'manifest-status',
   'sync-diagnostics',
-  'diagnostics-state', 'diagnostics-provider', 'diagnostics-utc', 'diagnostics-sample',
+  'diagnostics-state', 'diagnostics-provider', 'diagnostics-utc', 'diagnostics-synchronized-at', 'diagnostics-sample',
   'diagnostics-offset', 'diagnostics-uncertainty', 'diagnostics-latency', 'diagnostics-output-latency',
   'diagnostics-personal-audio-offset', 'diagnostics-host-audio-offset', 'diagnostics-effective-audio-offset',
   'diagnostics-attempts', 'diagnostics-detail', 'diagnostics-playback-checks',
@@ -852,6 +852,10 @@ function renderDiagnostics(status) {
     stateLabel = 'Ora locale';
     stateClass = 'is-warning';
   }
+  if (status.synchronizing) {
+    stateLabel = 'Risincronizzazione…';
+    stateClass = 'is-warning';
+  }
   elements['diagnostics-state'].textContent = stateLabel;
   elements['diagnostics-state'].className = `diagnostics-state ${stateClass}`;
 
@@ -862,6 +866,9 @@ function renderDiagnostics(status) {
 
   const timestamp = clock.now();
   elements['diagnostics-utc'].textContent = timestamp === null ? '--' : formatPreciseUtc(timestamp);
+  elements['diagnostics-synchronized-at'].textContent = Number.isFinite(status.synchronizedAt)
+    ? formatPreciseUtc(status.synchronizedAt)
+    : '--';
   elements['diagnostics-sample'].textContent = status.lastSample
     ? formatPreciseUtc(status.lastSample.utcMs)
     : '--';
