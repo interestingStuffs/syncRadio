@@ -14,6 +14,7 @@ import {
 import { buildSchedule, locateTrack } from './timeline.mjs';
 
 const TRACK_PRELOAD_LOOKAHEAD_MS = 10_000;
+const TRACK_RESYNC_WINDOW_MS = 15_000;
 const MAX_CALIBRATION_ADJUSTMENT_MS = 500;
 const CALIBRATION_STEP_INTERVAL_MS = 140;
 
@@ -50,6 +51,8 @@ let playbackSyncPositionKey = null;
 let preloadedTrackKey = null;
 let observedTrackStart = null;
 let hasObservedSchedulePosition = false;
+let scheduledResyncAt = null;
+let resyncTriggeredForObservedTrack = false;
 let playbackOffsetMs = loadPlaybackOffset();
 let synchronizationResetPending = false;
 let audioOutputLatencyMonitoringStarted = false;
@@ -205,6 +208,8 @@ async function loadStation(station) {
   playbackSyncPositionKey = null;
   observedTrackStart = null;
   hasObservedSchedulePosition = false;
+  scheduledResyncAt = null;
+  resyncTriggeredForObservedTrack = false;
   preloadedTrackKey = null;
   player.pause();
   playerError = '';
@@ -343,7 +348,7 @@ function render() {
 
   elements['tune-button'].disabled = false;
   const position = locatePlaybackPosition(timestamp);
-  observeScheduledTrack(position);
+  observeScheduledTrack(position, timestamp);
   const entries = elements['schedule-list'].children;
   for (let index = 0; index < entries.length; index += 1) {
     entries[index].classList.toggle('is-current', index === position.index);
@@ -378,7 +383,7 @@ function render() {
   elements['on-air-indicator'].classList.toggle('is-playing', tunedIn);
 }
 
-function observeScheduledTrack(position) {
+function observeScheduledTrack(position, timestamp) {
   const trackStart = position.track ? position.startsAt : null;
   const trackChanged = hasObservedSchedulePosition
     && trackStart !== null
@@ -388,12 +393,30 @@ function observeScheduledTrack(position) {
       audioOutputLatency.applyMeasurement();
       renderAudioOutputLatency();
     }
-    if (config.resyncOnTrackChangeOnly) {
+    if (config.resyncOnTrackChangeOnly && !resyncTriggeredForObservedTrack) {
       clock.synchronize().then(renderClockStatus, renderClockStatus);
+    }
+  }
+  if (trackStart !== observedTrackStart) {
+    scheduledResyncAt = null;
+    resyncTriggeredForObservedTrack = false;
+    const hasNextTrack = position.index < manifest.tracks.length - 1 || manifest.repeat;
+    if (config.resyncOnTrackChangeOnly && position.track && hasNextTrack) {
+      const windowStart = position.endsAt - Math.min(TRACK_RESYNC_WINDOW_MS, position.track.durationMs);
+      const randomWindowStart = Math.max(windowStart, timestamp);
+      scheduledResyncAt = randomWindowStart
+        + Math.random() * (position.endsAt - randomWindowStart);
     }
   }
   observedTrackStart = trackStart;
   hasObservedSchedulePosition = true;
+
+  if (scheduledResyncAt !== null
+    && !resyncTriggeredForObservedTrack
+    && timestamp >= scheduledResyncAt) {
+    resyncTriggeredForObservedTrack = true;
+    clock.synchronize().then(renderClockStatus, renderClockStatus);
+  }
 }
 
 function syncPlayback() {
@@ -407,7 +430,7 @@ function syncPlayback() {
   }
 
   const position = locatePlaybackPosition(timestamp);
-  observeScheduledTrack(position);
+  observeScheduledTrack(position, timestamp);
   if (!position.track) {
     cancelTuning();
     player.pause();
