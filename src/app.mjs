@@ -11,6 +11,7 @@ import {
   PLAYBACK_OFFSET_STEP_MS,
   MAX_PLAYBACK_OFFSET_MS,
 } from './playback-offset.mjs';
+import { parseHostAudioOffset } from './host-audio-offset.mjs';
 import { buildSchedule, locateTrack } from './timeline.mjs';
 
 const TRACK_PRELOAD_LOOKAHEAD_MS = 10_000;
@@ -31,6 +32,7 @@ const elements = Object.fromEntries([
   'sync-diagnostics',
   'diagnostics-state', 'diagnostics-provider', 'diagnostics-utc', 'diagnostics-sample',
   'diagnostics-offset', 'diagnostics-uncertainty', 'diagnostics-latency', 'diagnostics-output-latency',
+  'diagnostics-personal-audio-offset', 'diagnostics-host-audio-offset', 'diagnostics-effective-audio-offset',
   'diagnostics-attempts', 'diagnostics-detail', 'diagnostics-playback-checks',
   'diagnostics-playback-interval', 'diagnostics-playback-drift', 'diagnostics-playback-corrections',
 ].map((id) => [id, document.getElementById(id)]));
@@ -54,6 +56,7 @@ let hasObservedSchedulePosition = false;
 let scheduledResyncAt = null;
 let resyncTriggeredForObservedTrack = false;
 let playbackOffsetMs = loadPlaybackOffset();
+let hostAudioOffsetMs = 0;
 let synchronizationResetPending = false;
 let audioOutputLatencyMonitoringStarted = false;
 let calibrationActive = false;
@@ -69,6 +72,7 @@ async function start() {
     showConfigurationError(error.message);
     return;
   }
+  hostAudioOffsetMs = getHostAudioOffsetFromUrl();
   elements['playback-offset-controls'].hidden = !config.showPlaybackOffsetControls;
   elements['offset-calibration'].hidden = !config.showPlaybackCalibration;
   elements['sync-diagnostics'].hidden = !config.showSyncDiagnostics;
@@ -138,13 +142,19 @@ async function start() {
   renderPlaybackOffset();
   const initialStation = getStationFromUrl();
   updateStationUrl(initialStation, true);
-  if (config.stationQueryParam) {
-    window.addEventListener('popstate', () => {
+  window.addEventListener('popstate', () => {
+    const nextHostAudioOffsetMs = getHostAudioOffsetFromUrl();
+    if (nextHostAudioOffsetMs !== hostAudioOffsetMs) {
+      hostAudioOffsetMs = nextHostAudioOffsetMs;
+      if (tunedIn) void realignPlayback();
+      renderDiagnostics(clock.status());
+    }
+    if (config.stationQueryParam) {
       const station = getStationFromUrl();
       updateStationUrl(station, true);
       if (elements['station-select'].value !== station.id) loadStation(station);
-    });
-  }
+    }
+  });
   await Promise.allSettled([
     loadStation(initialStation),
     clock.synchronize(),
@@ -190,6 +200,13 @@ function getStationFromUrl() {
     ? new URL(window.location.href).searchParams.get(config.stationQueryParam)
     : null;
   return config.stations.find(({ id }) => id === stationId) || config.stations[0];
+}
+
+function getHostAudioOffsetFromUrl() {
+  const parameter = config.audioOffsetQueryParam
+    ? new URL(window.location.href).searchParams.get(config.audioOffsetQueryParam)
+    : null;
+  return parseHostAudioOffset(parameter);
 }
 
 function updateStationUrl(station, replace = false) {
@@ -429,8 +446,9 @@ function syncPlayback() {
     return;
   }
 
-  const position = locatePlaybackPosition(timestamp);
-  observeScheduledTrack(position, timestamp);
+  const schedulePosition = locatePlaybackPosition(timestamp);
+  observeScheduledTrack(schedulePosition, timestamp);
+  const position = locateAudioPlaybackPosition(timestamp);
   if (!position.track) {
     cancelTuning();
     player.pause();
@@ -452,9 +470,9 @@ function syncPlayback() {
   if (nextTrack
     && player.isPlaying()
     && nextTrackKey !== preloadedTrackKey
-    && position.endsAt - (timestamp + playbackOffsetMs + audioOutputLatency.getCompensationMs()) <= TRACK_PRELOAD_LOOKAHEAD_MS) {
+    && position.endsAt - (timestamp + playbackOffsetMs + hostAudioOffsetMs + audioOutputLatency.getCompensationMs()) <= TRACK_PRELOAD_LOOKAHEAD_MS) {
     preloadedTrackKey = nextTrackKey;
-    const untilNextTrackMs = position.endsAt - (timestamp + playbackOffsetMs);
+    const untilNextTrackMs = position.endsAt - (timestamp + playbackOffsetMs + hostAudioOffsetMs);
     void player.scheduleNextTrack(
       nextTrack,
       audioOutputLatency.getCompensationMs(),
@@ -481,7 +499,7 @@ async function toggleTuning() {
     renderPlayerError();
     return;
   }
-  const position = locatePlaybackPosition(timestamp);
+  const position = locateAudioPlaybackPosition(timestamp);
   if (!position.track) {
     playerError = position.elapsedMs < 0 ? 'La programmazione ufficiale non è ancora iniziata.' : 'La programmazione ufficiale è terminata.';
     renderPlayerError();
@@ -552,7 +570,7 @@ async function realignPlayback() {
     renderPlayerError();
     return false;
   }
-  const position = locatePlaybackPosition(timestamp);
+  const position = locateAudioPlaybackPosition(timestamp);
   if (!position.track) {
     playerError = position.elapsedMs < 0 ? 'La programmazione ufficiale non è ancora iniziata.' : 'La programmazione ufficiale è terminata.';
     renderPlayerError();
@@ -626,6 +644,10 @@ async function refreshAudioOutputLatency() {
 
 function locatePlaybackPosition(timestamp) {
   return locateTrack(manifest, timestamp + playbackOffsetMs);
+}
+
+function locateAudioPlaybackPosition(timestamp) {
+  return locateTrack(manifest, timestamp + playbackOffsetMs + hostAudioOffsetMs);
 }
 
 function getPlayerOffset(offsetMs) {
@@ -852,6 +874,11 @@ function renderDiagnostics(status) {
   elements['diagnostics-latency'].textContent = status.lastSample
     ? `${Math.round(status.lastSample.latencyMs)} ms · HTTP ${status.lastSample.httpStatus}`
     : '--';
+  elements['diagnostics-personal-audio-offset'].textContent = formatSignedMilliseconds(playbackOffsetMs);
+  elements['diagnostics-host-audio-offset'].textContent = formatSignedMilliseconds(hostAudioOffsetMs);
+  elements['diagnostics-effective-audio-offset'].textContent = formatSignedMilliseconds(
+    playbackOffsetMs + hostAudioOffsetMs + audioOutputLatency.getCompensationMs(),
+  );
   renderPlaybackSyncDiagnostics();
   renderAudioOutputLatency();
 

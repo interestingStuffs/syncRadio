@@ -1,6 +1,7 @@
 {
   "allowStationSwitch": true,
   "stationQueryParam": "station",
+  "audioOffsetQueryParam": "audioOffsetMs",
   "useManifestDurations": true,
   "showPlaybackOffsetControls": true,
   "showPlaybackCalibration": false,

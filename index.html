@@ -70,7 +70,7 @@
           </div>
           <p class="sync-reset-status" id="sync-reset-status" role="status" aria-live="polite" hidden></p>
           <div class="playback-offset" id="playback-offset-controls" aria-label="Correzione della sincronizzazione audio">
-            <span class="offset-label">OFFSET AUDIO</span>
+            <span class="offset-label">OFFSET PERSONALE</span>
             <button class="offset-button" id="offset-decrease" type="button" aria-label="Ritarda audio di 50 millisecondi" title="Ritarda audio di 50 ms">−</button>
             <output id="playback-offset" aria-live="polite">0 ms</output>
             <button class="offset-button" id="offset-increase" type="button" aria-label="Anticipa audio di 50 millisecondi" title="Anticipa audio di 50 ms">+</button>
@@ -164,6 +164,18 @@
           <div>
             <dt>Latenza d’uscita stimata</dt>
             <dd id="diagnostics-output-latency">Non misurata</dd>
+          </div>
+          <div>
+            <dt>Offset audio personale</dt>
+            <dd id="diagnostics-personal-audio-offset">0 ms</dd>
+          </div>
+          <div>
+            <dt>Offset audio host (URL)</dt>
+            <dd id="diagnostics-host-audio-offset">0 ms</dd>
+          </div>
+          <div>
+            <dt>Correzione audio effettiva</dt>
+            <dd id="diagnostics-effective-audio-offset">0 ms</dd>
           </div>
           <div>
             <dt>Intervallo controllo audio</dt>

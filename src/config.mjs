@@ -53,6 +53,12 @@ export async function loadConfig() {
   if (config.stationQueryParam !== undefined && !stationQueryParam) {
     throw new Error('Il valore "stationQueryParam" in config.json deve essere una stringa non vuota.');
   }
+  const audioOffsetQueryParam = config.audioOffsetQueryParam === undefined
+    ? null
+    : requireString(config.audioOffsetQueryParam, 'audioOffsetQueryParam');
+  if (config.audioOffsetQueryParam !== undefined && !audioOffsetQueryParam) {
+    throw new Error('Il valore "audioOffsetQueryParam" in config.json deve essere una stringa non vuota.');
+  }
   if (config.useManifestDurations !== undefined && typeof config.useManifestDurations !== 'boolean') {
     throw new Error('Il valore "useManifestDurations" in config.json deve essere true o false.');
   }
@@ -95,6 +101,7 @@ export async function loadConfig() {
     stationCatalogUrl,
     allowStationSwitch: config.allowStationSwitch === true,
     stationQueryParam,
+    audioOffsetQueryParam,
     useManifestDurations: config.useManifestDurations === true,
     showPlaybackCalibration: config.showPlaybackCalibration !== false,
     showPlaybackOffsetControls: config.showPlaybackOffsetControls !== false,

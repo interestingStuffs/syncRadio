@@ -53,6 +53,7 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     stationCatalogUrl: './catalog.json',
     allowStationSwitch: true,
     stationQueryParam: null,
+    audioOffsetQueryParam: null,
     customTimeSourceOnly: false,
     resyncOnTrackChangeOnly: false,
     timeSources: [{
@@ -328,6 +329,17 @@ test('valida e normalizza il parametro URL per la selezione della stazione', asy
 
   mockConfig(t, jsonResponse({ stations: [station], stationQueryParam: 42 }));
   await assert.rejects(loadConfig(), /stationQueryParam.*deve essere una stringa/);
+});
+
+test('valida e normalizza il parametro URL per l’offset audio host', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], audioOffsetQueryParam: '  audioDelay  ' }));
+  assert.equal((await loadConfig()).audioOffsetQueryParam, 'audioDelay');
+
+  mockConfig(t, jsonResponse({ stations: [station], audioOffsetQueryParam: '' }));
+  await assert.rejects(loadConfig(), /audioOffsetQueryParam.*stringa non vuota/);
+
+  mockConfig(t, jsonResponse({ stations: [station], audioOffsetQueryParam: 42 }));
+  await assert.rejects(loadConfig(), /audioOffsetQueryParam.*deve essere una stringa/);
 });
 
 test('ignora la vecchia configurazione del parametro URL per l’offset', async (t) => {
