@@ -42,6 +42,6 @@
   "requestTimeoutMs": 5000,
   "enableOutputLatencyCompensation": true,
   "maxOutputLatencyCompensationMs": 500,
-  "outputLatencyRefreshIntervalMs": 30000,
+  "outputLatencyRefreshIntervalMs": 10000,
   "localFallback": false
 }
