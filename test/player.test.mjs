@@ -233,6 +233,28 @@ test('corregge gli scarti oltre 10 ms riprogrammando la sorgente', async () => {
   assert.ok(Math.abs(measurements[0].driftMs - 50) < 1e-9);
 });
 
+test('mantiene la traccia precaricata attraverso una correzione di drift', async () => {
+  const setup = makePlayer();
+  const currentTrack = track('one');
+  const nextTrack = track('two');
+  await setup.player.tune(currentTrack, 1000);
+  await setup.player.preload(nextTrack);
+
+  setup.now(1000);
+  setup.context.currentTime = 11.05;
+  setup.player.sync(currentTrack, 2000);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  await setup.player.scheduleNextTrack(nextTrack, 24, 2000);
+
+  assert.deepEqual(setup.fetchCalls, [
+    'https://audio.example/one.mp3',
+    'https://audio.example/two.mp3',
+  ]);
+  assert.equal(setup.context.decoded, 2);
+  assert.equal(setup.context.sources.length, 3);
+});
+
 test('registra lo scarto senza riprogrammare quando resta entro la tolleranza', async () => {
   const measurements = [];
   const setup = makePlayer({ onSyncMeasurement: (measurement) => measurements.push(measurement) });

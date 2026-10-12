@@ -21,6 +21,7 @@ export function createAudioPlayer({
   let playbackRequested = false;
   let playbackPending = null;
   let playbackGeneration = 0;
+  let preloadedTrackUrl = null;
   let activeSource = null;
   let scheduledSource = null;
   let calibrationSource = null;
@@ -128,7 +129,8 @@ export function createAudioPlayer({
     scheduledSource = null;
     selectedTrack = activeSource.track;
     selectedTrackKey = activeSource.trackKey;
-    keepBuffers(new Set([selectedTrack.audioUrl]));
+    if (preloadedTrackUrl === selectedTrack.audioUrl) preloadedTrackUrl = null;
+    keepBuffers(new Set([selectedTrack.audioUrl, preloadedTrackUrl].filter(Boolean)));
     onStateChange(true);
     return true;
   }
@@ -228,8 +230,9 @@ export function createAudioPlayer({
     if (scheduledSource?.trackKey === trackKey) return;
     const generationKey = playbackGeneration;
     const requestedAt = monotonicNow();
+    preloadedTrackUrl = track.audioUrl;
     const bufferPromise = loadTrack(track);
-    keepBuffers(new Set([selectedTrack?.audioUrl, track.audioUrl].filter(Boolean)));
+    keepBuffers(new Set([selectedTrack?.audioUrl, preloadedTrackUrl].filter(Boolean)));
     const buffer = await bufferPromise;
     if (!playbackRequested || playbackGeneration !== generationKey) return;
 
@@ -270,6 +273,7 @@ export function createAudioPlayer({
     if (!force && promotedScheduledSource && selectedTrackKey === trackKey) return;
     if (!force && scheduledSource?.trackKey === trackKey && context.state === 'running') return;
     const isNewTrack = selectedTrackKey !== trackKey;
+    if (isNewTrack && preloadedTrackUrl !== track.audioUrl) preloadedTrackUrl = null;
     if (!force && !isNewTrack && playbackPending) return playbackPending;
 
     if (!force && !isNewTrack && activeSource) {
@@ -296,7 +300,7 @@ export function createAudioPlayer({
     const generationKey = playbackGeneration;
     const requestedOffset = requestedOffsetMs;
     const requestedAt = requestedAtMonotonicMs;
-    keepBuffers(new Set([track.audioUrl]));
+    keepBuffers(new Set([track.audioUrl, preloadedTrackUrl].filter(Boolean)));
     const pending = (async () => {
       const audioContext = getContext();
       if (audioContext.state !== 'running') await audioContext.resume();
@@ -334,6 +338,7 @@ export function createAudioPlayer({
   function pause() {
     playbackRequested = false;
     playbackPending = null;
+    preloadedTrackUrl = null;
     keepBuffers(new Set(selectedTrack ? [selectedTrack.audioUrl] : []));
     stopActiveSource();
   }
@@ -341,7 +346,8 @@ export function createAudioPlayer({
   return {
     preload(track) {
       if (!track) return Promise.resolve();
-      keepBuffers(new Set([selectedTrack?.audioUrl, track.audioUrl].filter(Boolean)));
+      preloadedTrackUrl = track.audioUrl;
+      keepBuffers(new Set([selectedTrack?.audioUrl, preloadedTrackUrl].filter(Boolean)));
       const preload = loadTrack(track);
       void preload.catch(() => {});
       return preload;
