@@ -324,7 +324,7 @@ test('propaga errori HTTP e interrompe la riproduzione pendente', async () => {
   assert.equal(setup.player.isPlaying(), false);
 });
 
-test('ritenta il caricamento dopo un errore HTTP temporaneo', async () => {
+test('ritenta automaticamente il caricamento dopo un errore HTTP temporaneo', async () => {
   let attempts = 0;
   const setup = makePlayer({
     fetchAudio: async () => {
@@ -333,9 +333,41 @@ test('ritenta il caricamento dopo un errore HTTP temporaneo', async () => {
         ? { ok: false, status: 503 }
         : { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
     },
+    audioFetchRetryDelayMs: 0,
   });
 
-  await assert.rejects(setup.player.tune(track(), 0), /HTTP 503/);
+  await setup.player.tune(track(), 0);
+
+  assert.equal(attempts, 2);
+  assert.equal(setup.player.isPlaying(), true);
+});
+
+test('non ritenta gli errori HTTP permanenti', async () => {
+  let attempts = 0;
+  const setup = makePlayer({
+    fetchAudio: async () => {
+      attempts += 1;
+      return { ok: false, status: 404 };
+    },
+    audioFetchRetryDelayMs: 0,
+  });
+
+  await assert.rejects(setup.player.tune(track(), 0), /HTTP 404/);
+  assert.equal(attempts, 1);
+});
+
+test('ritenta il download dopo un timeout', async () => {
+  let attempts = 0;
+  const setup = makePlayer({
+    fetchAudio: async (_url, options) => {
+      attempts += 1;
+      assert.ok(options.signal);
+      if (attempts === 1) throw new DOMException('timeout', 'TimeoutError');
+      return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
+    },
+    audioFetchRetryDelayMs: 0,
+  });
+
   await setup.player.tune(track(), 0);
 
   assert.equal(attempts, 2);

@@ -6,6 +6,9 @@ export function createAudioPlayer({
   onStateChange = () => {},
   AudioContextConstructor = globalThis.AudioContext,
   fetchAudio = globalThis.fetch?.bind(globalThis),
+  requestTimeoutMs = 8000,
+  maxAudioFetchRetries = 2,
+  audioFetchRetryDelayMs = 250,
   monotonicNow = () => performance.now(),
   onSyncMeasurement = () => {},
 } = {}) {
@@ -28,6 +31,33 @@ export function createAudioPlayer({
   let muted = false;
   const buffers = new Map();
 
+  function wait(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+
+  async function fetchTrackData(audioUrl) {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const response = await fetchAudio(audioUrl, {
+          signal: AbortSignal.timeout(requestTimeoutMs),
+        });
+        if (!response.ok) {
+          const error = new Error(`Traccia non disponibile (HTTP ${response.status}).`);
+          error.retryable = response.status >= 500;
+          throw error;
+        }
+        return await response.arrayBuffer();
+      } catch (error) {
+        if (error.retryable === false || attempt >= maxAudioFetchRetries) {
+          throw error;
+        }
+        if (attempt < maxAudioFetchRetries) {
+          await wait(audioFetchRetryDelayMs * (attempt + 1));
+        }
+      }
+    }
+  }
+
   function getContext() {
     if (context) return context;
     if (typeof AudioContextConstructor !== 'function') {
@@ -48,18 +78,17 @@ export function createAudioPlayer({
       if (typeof fetchAudio !== 'function') {
         throw new Error('Il browser non supporta il caricamento dei file audio.');
       }
-      let response;
-      try {
-        response = await fetchAudio(track.audioUrl);
-      } catch {
-        throw new Error('Traccia non raggiungibile. Verifica URL, connessione e permessi CORS.');
-      }
-      if (!response.ok) {
-        throw new Error(`Traccia non disponibile (HTTP ${response.status}).`);
-      }
       let audioData;
       try {
-        audioData = await response.arrayBuffer();
+        audioData = await fetchTrackData(track.audioUrl);
+      } catch (error) {
+        if (error.message.startsWith('Traccia non disponibile (HTTP ')) throw error;
+        if (error.name === 'TimeoutError') {
+          throw new Error('Timeout durante il download della traccia. Verifica la connessione.');
+        }
+        throw new Error('Traccia non raggiungibile. Verifica URL, connessione e permessi CORS.');
+      }
+      try {
         return await getContext().decodeAudioData(audioData);
       } catch {
         throw new Error('Impossibile decodificare la traccia. Verifica formato, file e permessi CORS.');

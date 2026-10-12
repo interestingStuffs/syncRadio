@@ -51,6 +51,9 @@ let stationLoadId = 0;
 let playbackSyncTimer = null;
 let playbackSyncPositionKey = null;
 let preloadedTrackKey = null;
+let preloadRequestedTrackKey = null;
+let preloadRetryTrackKey = null;
+let preloadRetryAt = 0;
 let observedTrackStart = null;
 let hasObservedSchedulePosition = false;
 let scheduledResyncAt = null;
@@ -83,6 +86,7 @@ async function start() {
     localFallback: config.localFallback,
   });
   player = createAudioPlayer({
+    requestTimeoutMs: config.requestTimeoutMs,
     onSyncMeasurement: (measurement) => {
       playbackSyncDiagnostics.recordDrift(measurement);
       if (measurement.corrected) preloadedTrackKey = null;
@@ -228,6 +232,9 @@ async function loadStation(station) {
   scheduledResyncAt = null;
   resyncTriggeredForObservedTrack = false;
   preloadedTrackKey = null;
+  preloadRequestedTrackKey = null;
+  preloadRetryTrackKey = null;
+  preloadRetryAt = 0;
   player.pause();
   playerError = '';
   elements['station-select'].value = station.id;
@@ -460,6 +467,9 @@ function syncPlayback() {
   if (syncPositionKey !== playbackSyncPositionKey) {
     playbackSyncPositionKey = syncPositionKey;
     preloadedTrackKey = null;
+    preloadRequestedTrackKey = null;
+    preloadRetryTrackKey = null;
+    preloadRetryAt = 0;
   }
   playbackSyncDiagnostics.recordCheck();
   player.sync(position.track, getPlayerOffset(position.offsetMs));
@@ -469,15 +479,36 @@ function syncPlayback() {
   const nextTrackKey = nextTrack ? `${position.endsAt}\n${nextTrack.id}\n${nextTrack.audioUrl}` : null;
   if (nextTrack
     && player.isPlaying()
+    && nextTrackKey !== preloadRequestedTrackKey
+    && (preloadRetryTrackKey !== nextTrackKey || timestamp >= preloadRetryAt)) {
+    preloadRequestedTrackKey = nextTrackKey;
+    preloadRetryTrackKey = null;
+    void player.preload(nextTrack).catch((error) => {
+      if (preloadRequestedTrackKey !== nextTrackKey || !tunedIn) return;
+      preloadRequestedTrackKey = null;
+      preloadRetryTrackKey = nextTrackKey;
+      preloadRetryAt = timestamp + 5000;
+      playerError = `Precaricamento della traccia successiva non riuscito; nuovo tentativo tra pochi secondi. ${error.message}`;
+      renderPlayerError();
+    });
+  }
+  if (nextTrack
+    && player.isPlaying()
     && nextTrackKey !== preloadedTrackKey
+    && (preloadRetryTrackKey !== nextTrackKey || timestamp >= preloadRetryAt)
     && position.endsAt - (timestamp + playbackOffsetMs + hostAudioOffsetMs + audioOutputLatency.getCompensationMs()) <= TRACK_PRELOAD_LOOKAHEAD_MS) {
     preloadedTrackKey = nextTrackKey;
+    preloadRetryTrackKey = null;
     const untilNextTrackMs = position.endsAt - (timestamp + playbackOffsetMs + hostAudioOffsetMs);
     void player.scheduleNextTrack(
       nextTrack,
       audioOutputLatency.getCompensationMs(),
       untilNextTrackMs,
     ).catch((error) => {
+      preloadRequestedTrackKey = null;
+      preloadRetryTrackKey = nextTrackKey;
+      preloadRetryAt = timestamp + 5000;
+      preloadedTrackKey = null;
       playerError = `Precaricamento della traccia successiva non riuscito: ${error.message}`;
       renderPlayerError();
     });
