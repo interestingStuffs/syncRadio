@@ -72,6 +72,9 @@ async function start() {
     config = await loadConfig();
     config.stations = await loadStationCatalog(config.stationCatalogUrl, config.requestTimeoutMs);
   } catch (error) {
+    elements['station-name'].textContent = 'Stazione non disponibile';
+    elements['station-description'].textContent = 'Impossibile caricare la configurazione della stazione.';
+    elements['manifest-status'].textContent = 'CONFIGURAZIONE NON DISPONIBILE';
     showConfigurationError(error.message);
     return;
   }
@@ -352,12 +355,17 @@ function render() {
 
   const timestamp = clock.now();
   if (timestamp === null) {
+    const synchronizing = clock.status().synchronizing;
     for (const occurrence of elements['schedule-list'].querySelectorAll('.schedule-next-occurrence')) {
       occurrence.hidden = true;
     }
     elements['track-time'].textContent = '--:--';
-    elements['track-title'].textContent = 'Orologio comune non disponibile';
-    elements['track-artist'].textContent = 'Le sorgenti configurate non rispondono e il fallback locale è disattivato.';
+    elements['track-title'].textContent = synchronizing
+      ? 'Sincronizzazione dell’orologio…'
+      : 'Orologio comune non disponibile';
+    elements['track-artist'].textContent = synchronizing
+      ? 'Attendi il primo allineamento dell’orologio comune.'
+      : 'Le sorgenti configurate non rispondono e il fallback locale è disattivato.';
     elements['progress-fill'].style.width = '0%';
     elements['elapsed-time'].textContent = '--:--';
     elements['remaining-time'].textContent = '--:--';
@@ -850,9 +858,13 @@ function renderClockStatus() {
   const element = elements['sync-status'];
   element.classList.toggle('is-fallback', status.fallback || Boolean(status.usingFallbackSource));
   element.classList.toggle('is-error', !status.synchronized && Boolean(status.error));
-  elements['sync-icon'].textContent = status.synchronized ? (status.usingFallbackSource ? '↪' : '◷') : '!';
+  elements['sync-icon'].textContent = status.synchronized
+    ? (status.usingFallbackSource ? '↪' : '◷')
+    : status.synchronizing ? '◷' : '!';
 
-  if (status.fallback) {
+  if (status.synchronizing && !status.synchronized) {
+    elements['sync-message'].textContent = 'Sincronizzazione dell’orologio comune…';
+  } else if (status.fallback) {
     elements['sync-message'].textContent = status.error
       ? `${status.error} Fallback sull’orologio locale: la sincronizzazione condivisa non è garantita.`
       : 'Orologio locale in uso: nessuna API dell’ora ha risposto. La sincronizzazione condivisa non è garantita.';
@@ -976,7 +988,9 @@ function renderClockLabel() {
   if (!clock) return;
   const timestamp = clock.now();
   if (timestamp === null) {
-    elements['clock-label'].textContent = 'Ora UTC non disponibile';
+    elements['clock-label'].textContent = clock.status().synchronizing
+      ? 'Ora UTC in sincronizzazione…'
+      : 'Ora UTC non disponibile';
     return;
   }
   elements['clock-label'].textContent = new Intl.DateTimeFormat('it-IT', {

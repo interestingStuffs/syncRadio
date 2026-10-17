@@ -23,8 +23,8 @@
     <main>
       <section class="station-intro" aria-labelledby="station-name">
         <p class="eyebrow">LA STAZIONE UFFICIALE</p>
-        <h1 id="station-name">Radio non configurata</h1>
-        <p class="station-description" id="station-description">La stazione ufficiale non è ancora disponibile.</p>
+        <h1 id="station-name">Caricamento della stazione…</h1>
+        <p class="station-description" id="station-description">Caricamento della configurazione della stazione…</p>
         <div class="station-switcher" id="station-switcher" hidden>
           <label for="station-select">Ascolta un’altra stazione</label>
           <select id="station-select"></select>
@@ -40,8 +40,8 @@
 
           <div class="track-info" aria-live="polite" aria-atomic="true">
             <p class="track-time" id="track-time">--:--</p>
-            <h2 id="track-title">Nessuna traccia caricata</h2>
-            <p class="track-artist" id="track-artist">Configura il manifesto per iniziare.</p>
+            <h2 id="track-title">Caricamento della stazione…</h2>
+            <p class="track-artist" id="track-artist"></p>
           </div>
 
           <div class="progress-track" aria-hidden="true"><span id="progress-fill"></span></div>
@@ -115,7 +115,7 @@
             <span class="schedule-count" id="schedule-count">0</span>
           </div>
           <ol class="schedule-list" id="schedule-list">
-            <li class="schedule-empty">La scaletta sarà mostrata qui quando il manifesto sarà disponibile.</li>
+            <li class="schedule-empty">Caricamento della scaletta…</li>
           </ol>
           <p class="schedule-footnote" id="schedule-footnote">Orari calcolati dalla timeline condivisa.</p>
         </aside>
@@ -211,7 +211,7 @@
 
     <footer class="page-footer">
       <span>Una stazione. La stessa timeline, ovunque.</span>
-      <span id="manifest-status">MANIFESTO NON CARICATO</span>
+      <span id="manifest-status">CARICAMENTO STAZIONE</span>
     </footer>
   </body>
 </html>
