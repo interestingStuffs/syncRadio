@@ -39,6 +39,8 @@
   "resyncOnTrackChangeOnly": true,
   "resyncIntervalMs": 15000,
   "playbackSyncIntervalMs": 50,
+  "maxSmoothPlaybackDriftMs": 100,
+  "maxPlaybackRateAdjustmentPercent": 1,
   "requestTimeoutMs": 5000,
   "enableOutputLatencyCompensation": true,
   "maxOutputLatencyCompensationMs": 900,

@@ -69,6 +69,8 @@ test('carica e normalizza la configurazione con i valori predefiniti', async (t)
     outputLatencyRefreshIntervalMs: 30000,
     enableOutputLatencyCompensation: true,
     playbackSyncIntervalMs: 50,
+    maxSmoothPlaybackDriftMs: 100,
+    maxPlaybackRateAdjustmentPercent: 1,
     localFallback: true,
     useManifestDurations: false,
     showPlaybackCalibration: true,
@@ -98,6 +100,8 @@ test('accetta una lista vuota di sorgenti e fallback locale disattivato', async 
   assert.equal(config.playbackSyncIntervalMs, 100);
   assert.equal(config.maxOutputLatencyCompensationMs, 100);
   assert.equal(config.outputLatencyRefreshIntervalMs, 30000);
+  assert.equal(config.maxSmoothPlaybackDriftMs, 100);
+  assert.equal(config.maxPlaybackRateAdjustmentPercent, 1);
   assert.equal(config.localFallback, false);
   assert.equal(config.useManifestDurations, false);
   assert.equal(config.showPlaybackCalibration, true);
@@ -142,6 +146,32 @@ test('rifiuta intervalli non validi per il controllo audio', async (t) => {
 
   mockConfig(t, jsonResponse({ stations: [station], playbackSyncIntervalMs: '50' }));
   await assert.rejects(loadConfig(), /playbackSyncIntervalMs.*tra 10 e 1000/);
+});
+
+test('carica i limiti configurati per la correzione graduale del drift', async (t) => {
+  mockConfig(t, jsonResponse({
+    stations: [station],
+    maxSmoothPlaybackDriftMs: 180,
+    maxPlaybackRateAdjustmentPercent: 1.5,
+  }));
+
+  const config = await loadConfig();
+  assert.equal(config.maxSmoothPlaybackDriftMs, 180);
+  assert.equal(config.maxPlaybackRateAdjustmentPercent, 1.5);
+});
+
+test('rifiuta limiti non validi per la correzione graduale del drift', async (t) => {
+  mockConfig(t, jsonResponse({ stations: [station], maxSmoothPlaybackDriftMs: 9 }));
+  await assert.rejects(loadConfig(), /maxSmoothPlaybackDriftMs.*tra 10 e 500/);
+
+  mockConfig(t, jsonResponse({ stations: [station], maxSmoothPlaybackDriftMs: 501 }));
+  await assert.rejects(loadConfig(), /maxSmoothPlaybackDriftMs.*tra 10 e 500/);
+
+  mockConfig(t, jsonResponse({ stations: [station], maxPlaybackRateAdjustmentPercent: 0 }));
+  await assert.rejects(loadConfig(), /maxPlaybackRateAdjustmentPercent.*tra 0\.1 e 2/);
+
+  mockConfig(t, jsonResponse({ stations: [station], maxPlaybackRateAdjustmentPercent: 2.1 }));
+  await assert.rejects(loadConfig(), /maxPlaybackRateAdjustmentPercent.*tra 0\.1 e 2/);
 });
 
 test('abilita la risincronizzazione solo al cambio traccia', async (t) => {

@@ -11,6 +11,13 @@ class FakeBufferSource {
     this.started = null;
     this.stoppedAt = null;
     this.onended = null;
+    this.playbackRate = {
+      value: 1,
+      targets: [],
+      setTargetAtTime: (value, startTime, timeConstant) => {
+        this.playbackRate.targets.push({ value, startTime, timeConstant });
+      },
+    };
   }
 
   connect(destination) { this.destination = destination; }
@@ -214,26 +221,61 @@ test('riusa la traccia selezionata quando la posizione segue la timeline', async
   assert.equal(fetchCalls.length, 1);
 });
 
-test('corregge gli scarti oltre 10 ms riprogrammando la sorgente', async () => {
+test('corregge gradualmente gli scarti entro 100 ms senza riprogrammare la sorgente', async () => {
   const measurements = [];
   const setup = makePlayer({ onSyncMeasurement: (measurement) => measurements.push(measurement) });
   await setup.player.tune(track(), 1000);
   const { player, context } = setup;
+  const source = context.sources[0];
 
   setup.now(1000);
   context.currentTime = 11.05;
   player.sync(track(), 2000);
-  await Promise.resolve();
 
-  assert.equal(context.sources.length, 2);
-  assert.equal(context.sources[0].stoppedAt, 11.07);
-  assert.equal(context.sources[1].started.offset, 2.02);
+  assert.equal(context.sources.length, 1);
+  assert.equal(source.stoppedAt, null);
+  assert.deepEqual(source.playbackRate.targets, [{
+    value: 0.99,
+    startTime: 11.05,
+    timeConstant: 0.15,
+  }]);
   assert.equal(measurements.length, 1);
   assert.equal(measurements[0].corrected, true);
   assert.ok(Math.abs(measurements[0].driftMs - 50) < 1e-9);
 });
 
-test('mantiene la traccia precaricata attraverso una correzione di drift', async () => {
+test('riprogramma la sorgente per scarti superiori a 100 ms', async () => {
+  const setup = makePlayer();
+  await setup.player.tune(track(), 1000);
+  const { player, context } = setup;
+
+  setup.now(1000);
+  context.currentTime = 11.15;
+  player.sync(track(), 2000);
+  await Promise.resolve();
+
+  assert.equal(context.sources.length, 2);
+  assert.equal(context.sources[0].stoppedAt, 11.17);
+  assert.equal(context.sources[1].started.offset, 2.02);
+});
+
+test('usa i limiti configurati per la correzione graduale', async () => {
+  const setup = makePlayer({
+    maxSmoothPlaybackDriftMs: 200,
+    maxPlaybackRateAdjustmentPercent: 0.5,
+  });
+  await setup.player.tune(track(), 1000);
+  const { player, context } = setup;
+
+  setup.now(1000);
+  context.currentTime = 11.15;
+  player.sync(track(), 2000);
+
+  assert.equal(context.sources.length, 1);
+  assert.equal(context.sources[0].playbackRate.targets[0].value, 0.995);
+});
+
+test('mantiene la traccia successiva programmata durante una correzione graduale', async () => {
   const setup = makePlayer();
   const currentTrack = track('one');
   const nextTrack = track('two');
@@ -252,7 +294,8 @@ test('mantiene la traccia precaricata attraverso una correzione di drift', async
     'https://audio.example/two.mp3',
   ]);
   assert.equal(setup.context.decoded, 2);
-  assert.equal(setup.context.sources.length, 3);
+  assert.equal(setup.context.sources.length, 2);
+  assert.equal(setup.context.sources[1].stoppedAt, null);
 });
 
 test('registra lo scarto senza riprogrammare quando resta entro la tolleranza', async () => {

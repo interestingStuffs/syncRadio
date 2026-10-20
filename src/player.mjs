@@ -1,5 +1,9 @@
 const SYNC_TOLERANCE_SECONDS = 0.01;
 const SCHEDULE_LEAD_SECONDS = 0.02;
+const DEFAULT_MAX_SMOOTH_PLAYBACK_DRIFT_MS = 100;
+const DEFAULT_MAX_PLAYBACK_RATE_ADJUSTMENT_PERCENT = 1;
+const PLAYBACK_RATE_CORRECTION_TIME_SECONDS = 3;
+const PLAYBACK_RATE_TIME_CONSTANT_SECONDS = 0.15;
 
 export function createAudioPlayer({
   onError = () => {},
@@ -11,6 +15,8 @@ export function createAudioPlayer({
   audioFetchRetryDelayMs = 250,
   monotonicNow = () => performance.now(),
   onSyncMeasurement = () => {},
+  maxSmoothPlaybackDriftMs = DEFAULT_MAX_SMOOTH_PLAYBACK_DRIFT_MS,
+  maxPlaybackRateAdjustmentPercent = DEFAULT_MAX_PLAYBACK_RATE_ADJUSTMENT_PERCENT,
 } = {}) {
   let context = null;
   let gainNode = null;
@@ -120,7 +126,37 @@ export function createAudioPlayer({
   }
 
   function playbackPosition(source, contextTime = context.currentTime) {
-    return source.offsetSeconds + Math.max(0, contextTime - source.startTime);
+    const elapsed = Math.max(0, contextTime - source.lastPositionUpdateTime);
+    if (elapsed > 0) {
+      const rateDifference = source.targetPlaybackRate - source.playbackRate;
+      const remainingRateDifference = rateDifference
+        * Math.exp(-elapsed / PLAYBACK_RATE_TIME_CONSTANT_SECONDS);
+      source.positionSeconds += source.targetPlaybackRate * elapsed
+        + rateDifference * PLAYBACK_RATE_TIME_CONSTANT_SECONDS
+          * (1 - Math.exp(-elapsed / PLAYBACK_RATE_TIME_CONSTANT_SECONDS));
+      source.playbackRate = source.targetPlaybackRate + remainingRateDifference;
+      source.lastPositionUpdateTime = contextTime;
+    }
+    return source.positionSeconds;
+  }
+
+  function setPlaybackRateCorrection(source, driftMs) {
+    const maxPlaybackRateAdjustment = maxPlaybackRateAdjustmentPercent / 100;
+    const adjustment = Math.min(
+      maxPlaybackRateAdjustment,
+      Math.max(
+        -maxPlaybackRateAdjustment,
+        driftMs / PLAYBACK_RATE_CORRECTION_TIME_SECONDS / 1000,
+      ),
+    );
+    const targetRate = 1 - adjustment;
+    if (Math.abs(targetRate - source.targetPlaybackRate) < 0.0001) return;
+    source.targetPlaybackRate = targetRate;
+    source.node.playbackRate.setTargetAtTime(
+      targetRate,
+      context.currentTime,
+      PLAYBACK_RATE_TIME_CONSTANT_SECONDS,
+    );
   }
 
   function promoteScheduledSource() {
@@ -146,6 +182,10 @@ export function createAudioPlayer({
       trackKey: `${track.id}\n${track.audioUrl}`,
       startTime,
       offsetSeconds,
+      positionSeconds: offsetSeconds,
+      lastPositionUpdateTime: startTime,
+      playbackRate: 1,
+      targetPlaybackRate: 1,
       stopScheduled: false,
     };
     sourceNode.onended = () => {
@@ -286,7 +326,10 @@ export function createAudioPlayer({
       onSyncMeasurement({ driftMs, corrected });
       requestedOffsetMs = Math.max(0, offsetMs);
       requestedAtMonotonicMs = now;
-      if (!corrected) return;
+      if (Math.abs(driftMs) <= maxSmoothPlaybackDriftMs) {
+        setPlaybackRateCorrection(activeSource, driftMs);
+        return;
+      }
     }
 
     playbackGeneration += 1;

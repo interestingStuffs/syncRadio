@@ -90,6 +90,8 @@ async function start() {
   });
   player = createAudioPlayer({
     requestTimeoutMs: config.requestTimeoutMs,
+    maxSmoothPlaybackDriftMs: config.maxSmoothPlaybackDriftMs,
+    maxPlaybackRateAdjustmentPercent: config.maxPlaybackRateAdjustmentPercent,
     onSyncMeasurement: (measurement) => {
       playbackSyncDiagnostics.recordDrift(measurement);
       if (measurement.corrected) preloadedTrackKey = null;

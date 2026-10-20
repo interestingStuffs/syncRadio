@@ -2,6 +2,12 @@ const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_PLAYBACK_SYNC_INTERVAL_MS = 50;
 const MIN_PLAYBACK_SYNC_INTERVAL_MS = 10;
 const MAX_PLAYBACK_SYNC_INTERVAL_MS = 1000;
+const DEFAULT_MAX_SMOOTH_PLAYBACK_DRIFT_MS = 100;
+const MIN_MAX_SMOOTH_PLAYBACK_DRIFT_MS = 10;
+const MAX_SMOOTH_PLAYBACK_DRIFT_MS = 500;
+const DEFAULT_MAX_PLAYBACK_RATE_ADJUSTMENT_PERCENT = 1;
+const MIN_PLAYBACK_RATE_ADJUSTMENT_PERCENT = 0.1;
+const MAX_PLAYBACK_RATE_ADJUSTMENT_PERCENT = 2;
 const DEFAULT_OUTPUT_LATENCY_REFRESH_INTERVAL_MS = 30000;
 const DEFAULT_MAX_OUTPUT_LATENCY_COMPENSATION_MS = 100;
 const MAX_OUTPUT_LATENCY_COMPENSATION_MS = 1000;
@@ -96,6 +102,20 @@ export async function loadConfig() {
     MAX_PLAYBACK_SYNC_INTERVAL_MS,
     'playbackSyncIntervalMs',
   );
+  const maxSmoothPlaybackDriftMs = boundedNumber(
+    config.maxSmoothPlaybackDriftMs,
+    DEFAULT_MAX_SMOOTH_PLAYBACK_DRIFT_MS,
+    MIN_MAX_SMOOTH_PLAYBACK_DRIFT_MS,
+    MAX_SMOOTH_PLAYBACK_DRIFT_MS,
+    'maxSmoothPlaybackDriftMs',
+  );
+  const maxPlaybackRateAdjustmentPercent = boundedNumber(
+    config.maxPlaybackRateAdjustmentPercent,
+    DEFAULT_MAX_PLAYBACK_RATE_ADJUSTMENT_PERCENT,
+    MIN_PLAYBACK_RATE_ADJUSTMENT_PERCENT,
+    MAX_PLAYBACK_RATE_ADJUSTMENT_PERCENT,
+    'maxPlaybackRateAdjustmentPercent',
+  );
 
   return {
     stationCatalogUrl,
@@ -115,6 +135,8 @@ export async function loadConfig() {
     outputLatencyRefreshIntervalMs,
     enableOutputLatencyCompensation: config.enableOutputLatencyCompensation !== false,
     playbackSyncIntervalMs,
+    maxSmoothPlaybackDriftMs,
+    maxPlaybackRateAdjustmentPercent,
     localFallback: config.localFallback !== false,
   };
 }
