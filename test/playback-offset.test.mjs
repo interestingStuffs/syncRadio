@@ -25,6 +25,6 @@ test('limita l’offset e ignora valori memorizzati non validi', () => {
 
   assert.equal(savePlaybackOffset(9000, storage), 5000);
   assert.equal(savePlaybackOffset(-9000, storage), -5000);
-  storage.setItem('syncRadio.playbackOffsetMs', 'invalid');
+  storage.setItem('synChestra.playbackOffsetMs', 'invalid');
   assert.equal(loadPlaybackOffset(storage), 0);
 });

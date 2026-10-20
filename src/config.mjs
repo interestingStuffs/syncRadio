@@ -176,7 +176,7 @@ function validateCustomTimeSource(value) {
   if (!url) return null;
 
   return validateTimeSource({
-    name: value.name ?? 'SyncRadio · UTC',
+    name: value.name ?? 'synChestra · UTC',
     url,
     responsePath: value.responsePath ?? 'utc',
     timeZonePath: value.timeZonePath ?? '',

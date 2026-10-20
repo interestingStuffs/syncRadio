@@ -1,6 +1,6 @@
-# syncRadio
+# synChestra
 
-syncRadio is a static web app that plays one or more configured stations against a shared UTC schedule. It needs no application backend: serve the files from any static web host.
+synChestra is a static web app that plays one or more configured stations against a shared UTC schedule. It needs no application backend: serve the files from any static web host.
 
 ## Run locally
 

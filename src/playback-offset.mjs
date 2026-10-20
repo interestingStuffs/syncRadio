@@ -1,7 +1,7 @@
 export const PLAYBACK_OFFSET_STEP_MS = 50;
 export const MAX_PLAYBACK_OFFSET_MS = 5000;
 
-const STORAGE_KEY = 'syncRadio.playbackOffsetMs';
+const STORAGE_KEY = 'synChestra.playbackOffsetMs';
 
 export function loadPlaybackOffset(storage = getStorage()) {
   if (!storage) return 0;

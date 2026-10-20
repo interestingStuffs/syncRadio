@@ -196,7 +196,7 @@ test('disattiva il servizio orario proprietario finché l’URL è vuoto', async
   mockConfig(t, jsonResponse({
     stations: [station],
     customTimeSource: {
-      name: 'SyncRadio · UTC',
+      name: 'synChestra · UTC',
       url: '  ',
       responsePath: 'utc',
     },
@@ -222,8 +222,8 @@ test('prova il servizio orario proprietario per primo quando configurato', async
   mockConfig(t, jsonResponse({
     stations: [station],
     customTimeSource: {
-      name: 'SyncRadio UTC',
-      url: 'https://clock.syncradio.example/api/time',
+      name: 'synChestra UTC',
+      url: 'https://clock.synchestra.example/api/time',
       responsePath: 'data.utc',
     },
     timeSources: [{
@@ -235,9 +235,9 @@ test('prova il servizio orario proprietario per primo quando configurato', async
 
   const config = await loadConfig();
 
-  assert.equal(config.timeSources[0].name, 'SyncRadio UTC');
+  assert.equal(config.timeSources[0].name, 'synChestra UTC');
   assert.equal(config.timeSources[0].responsePath, 'data.utc');
-  assert.deepEqual(config.timeSources.map(({ name }) => name), ['SyncRadio UTC', 'Pubblico']);
+  assert.deepEqual(config.timeSources.map(({ name }) => name), ['synChestra UTC', 'Pubblico']);
 });
 
 test('usa solo il servizio orario proprietario quando configurato in modalità esclusiva', async (t) => {
