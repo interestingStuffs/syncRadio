@@ -7,7 +7,7 @@
   "showPlaybackCalibration": false,
   "showSyncDiagnostics": true,
   "customTimeSource": {
-    "name": "synChestra · UTC",
+    "name": "SyncRadio · UTC",
     "url": "",
     "responsePath": "utc",
     "timeZonePath": "",
